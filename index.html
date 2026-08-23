@@ -231,6 +231,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
+const APP_VER    = "2026-08-23d";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -391,6 +392,7 @@ function newTeamCode(){
 function setTeam(code){
   const c = normTeam(code);
   if(c.length < 6) { toast("코드는 영문·숫자 6자 이상이에요"); return false; }
+  snapshotLocal();            /* 연결 전 상태를 되돌리기용으로 보관 */
   TEAM_ID = c; lsSet("sm-team", c);
   initFirebase(); render();
   return true;
@@ -1720,6 +1722,9 @@ function openSettings(){
           + '<div class="muted" style="margin-top:7px">다른 기기 자료로 바뀌기 직전 상태예요</div>'
         : '')
     + '</div>';
+  b += '<div class="card tight"><div class="row"><div class="sp muted">앱 버전 <b>'+APP_VER+'</b>'
+    + (LS_OK?'':' · ⚠️ 저장 불가 브라우저')+'</div>'
+    + '<button class="btn xs g" onclick="hardReload()">최신으로 갱신</button></div></div>';
   b += '<button class="btn full" onclick="saveSettings()">저장</button>';
   b += '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="resetAll()">전체 데이터 초기화</button>';
   sheet("설정", b);
@@ -1773,6 +1778,23 @@ function saveSettings(){
     S.adminPin = document.getElementById("stPin").value.trim()||"1234";
   }
   save(); closeSheet(); render(); toast("설정을 저장했어요 ✓");
+}
+/* 서비스워커·캐시를 비우고 최신 파일로 다시 받기 */
+function hardReload(){
+  const go2 = function(){
+    const base = location.origin + location.pathname;
+    location.replace(base + "?v=" + Date.now() + (TEAM_ID? "&t="+TEAM_ID : ""));
+  };
+  try{
+    const jobs=[];
+    if(window.caches && caches.keys) jobs.push(caches.keys().then(function(ks){
+      return Promise.all(ks.map(function(k){ return caches.delete(k); })); }));
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
+        return Promise.all(rs.map(function(r){ return r.unregister(); })); }));
+    Promise.all(jobs).then(go2, go2);
+    setTimeout(go2, 1500);
+  }catch(e){ go2(); }
 }
 function backup(){
   const blob = new Blob([JSON.stringify(data,null,1)], {type:"application/json"});

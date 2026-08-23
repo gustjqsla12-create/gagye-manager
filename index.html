@@ -231,7 +231,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23d";
+const APP_VER    = "2026-08-23e";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -430,7 +430,8 @@ function initFirebase(){
     unsub=fbDoc.onSnapshot(function(snap){
       if(!snap.exists){ pushRemote(); return; }
       const d=snap.data();
-      if(d._client===CLIENT_ID) return;
+      /* 내가 방금 쓴 변경은 무시. 단 이 기기가 비어 있으면 서버 자료를 받아온다 */
+      if(d._client===CLIENT_ID && hasContent(data)) return;
       applyRemote(d);
     }, function(err){ setSync("bad","동기화 오류: "+err.code); });
     setSync("ok");

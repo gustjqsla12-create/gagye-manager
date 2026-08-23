@@ -360,8 +360,26 @@ function deptLabel(d){ return {hall:"홀",kitchen:"주방",both:"홀+주방"}[d|
 /* ═══ 저장 / 동기화 ═══ */
 let fbDoc=null, pushTimer=null, applyingRemote=false, pendingRemote=null, fbReady=false, unsub=null;
 
-/* 팀 코드 (기기별 저장) */
-function loadTeam(){ TEAM_ID = lsGet("sm-team") || ""; }
+/* 이 브라우저가 저장을 지원하는지 (시크릿 창·카톡 내부 브라우저는 실패할 수 있음) */
+const LS_OK = (function(){
+  try{ localStorage.setItem("_smtest","1"); localStorage.removeItem("_smtest"); return true; }
+  catch(e){ return false; }
+})();
+
+/* 팀 코드 (기기별 저장 + 주소의 ?t= 로도 전달) */
+function teamFromUrl(){
+  const m = String(location.search||"").match(/[?&]t=([^&#]+)/);
+  return m ? normTeam(decodeURIComponent(m[1])) : "";
+}
+function loadTeam(){
+  const url = teamFromUrl();
+  if(url){ TEAM_ID = url; lsSet("sm-team", url); return; }
+  TEAM_ID = lsGet("sm-team") || "";
+}
+function inviteLink(){
+  if(location.protocol.indexOf("http")!==0 || !TEAM_ID) return "";
+  return location.origin + location.pathname + "?t=" + TEAM_ID;
+}
 function normTeam(v){
   return String(v||"").trim().toLowerCase().replace(/[^a-z0-9\-]/g,"").slice(0,40);
 }
@@ -647,6 +665,14 @@ function viewHome(){
   const hall = chkProgress("hall","daily",t), kit = chkProgress("kitchen","daily",t);
   const m = monthKey(new Date());
   let html = "";
+
+  /* 저장이 안 되는 브라우저 경고 */
+  if(!LS_OK){
+    html += '<div class="card" style="border-color:#f5c6c2;background:var(--bad-soft)">'
+         +  '<div class="li-t">⚠️ 이 브라우저는 저장이 안 돼요</div>'
+         +  '<div class="li-s" style="margin-top:4px">카카오톡 내부 브라우저나 시크릿 창으로 보고 계신 것 같아요. '
+         +  '입력한 내용이 창을 닫으면 사라집니다.<br><b>우측 하단 메뉴 → 다른 브라우저(크롬)로 열기</b>를 눌러 주세요.</div></div>';
+  }
 
   /* 내 출퇴근 */
   const me = staffById(meId);
@@ -1674,6 +1700,8 @@ function openSettings(){
         ? '<div class="li"><div class="sp"><div class="li-t" style="font-family:monospace">'+esc(TEAM_ID)+'</div>'
           + '<div class="li-s">이 코드를 넣은 기기끼리 실시간으로 공유돼요</div></div>'
           + '<button class="btn xs g" onclick="copyTxt(TEAM_ID)">복사</button></div>'
+          + (inviteLink()? '<button class="btn full sm" style="margin-top:10px" onclick="copyTxt(inviteLink())">🔗 직원 초대 링크 복사</button>'
+              + '<div class="muted" style="margin-top:6px">이 링크로 열면 코드 입력 없이 바로 연결돼요 (카톡으로 전달)</div>':'')
           + '<button class="btn g full sm" style="margin-top:10px" onclick="openTeamGate()">팀 코드 변경 / 다시 연결</button>'
           + '<div class="muted" style="margin-top:8px">⚠️ 코드를 아는 사람은 급여까지 볼 수 있어요. 직원에게만 알려주세요.</div>'
         : '<div class="muted" style="margin-bottom:10px">아직 팀 코드가 없어요. 지금은 이 기기에만 저장됩니다.</div>'

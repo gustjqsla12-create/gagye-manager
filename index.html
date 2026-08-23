@@ -416,6 +416,18 @@ function initFirebase(){
     setSync("ok");
   }catch(e){ setSync("bad","Firebase 초기화 실패"); }
 }
+/* 알맹이가 있는 자료인지 (직원·자재·레시피·근무기록 중 하나라도 있으면 true) */
+function hasContent(o){
+  if(!o) return false;
+  return !!((o.staff&&o.staff.length) || (o.stock&&o.stock.length) ||
+            (o.recipes&&o.recipes.length) || (o.attend&&o.attend.length) ||
+            (o.moves&&o.moves.length));
+}
+/* 원격 자료를 덮어쓰기 직전, 현재 내용을 되돌리기용으로 보관 */
+function snapshotLocal(){
+  if(!hasContent(data)) return;
+  try{ lsSet("sm-snap", JSON.stringify({ t:Date.now(), d:data })); }catch(e){}
+}
 function applyRemote(d){
   const ae=document.activeElement;
   if(ae && (ae.tagName==="INPUT"||ae.tagName==="TEXTAREA")){
@@ -423,10 +435,35 @@ function applyRemote(d){
     setTimeout(function(){ if(pendingRemote){ const p=pendingRemote; pendingRemote=null; applyRemote(p); } },2500);
     return;
   }
+  const inc={};
+  FIELDS.forEach(function(f){ try{ if(d[f]) inc[f]=JSON.parse(d[f]); }catch(e){} });
+
+  /* 서버가 비어 있는데 이 기기에 자료가 있으면 → 지우지 말고 올린다 */
+  if(!hasContent(inc) && hasContent(data)){
+    applyingRemote=false;
+    pushRemote();
+    setSync("ok","이 기기 자료를 팀에 올렸어요 ⬆️");
+    return;
+  }
+  snapshotLocal();
   applyingRemote=true;
-  FIELDS.forEach(function(f){ try{ if(d[f]) data[f]=JSON.parse(d[f]); }catch(e){} });
+  FIELDS.forEach(function(f){ if(inc[f]!==undefined) data[f]=inc[f]; });
   saveLocal(); render(); applyingRemote=false;
   setSync("ok","다른 기기의 변경을 받았어요 🔄");
+}
+/* 마지막 자동 백업으로 되돌리기 */
+function snapInfo(){
+  try{ const s=JSON.parse(lsGet("sm-snap")||"null"); return s&&s.d? s:null; }catch(e){ return null; }
+}
+function restoreSnap(){
+  const s=snapInfo();
+  if(!s){ toast("자동 백업이 없어요"); return; }
+  const when=new Date(s.t);
+  if(!confirm("자동 백업으로 되돌릴까요?\n\n저장 시각: "+when.toLocaleString("ko-KR")
+    +"\n자재 "+((s.d.stock||[]).length)+"개 · 레시피 "+((s.d.recipes||[]).length)+"개 · 직원 "+((s.d.staff||[]).length)+"명"
+    +"\n\n현재 내용은 이 자료로 바뀝니다.")) return;
+  FIELDS.forEach(function(f){ if(s.d[f]!==undefined) data[f]=s.d[f]; });
+  save(); closeSheet(); render(); toast("되돌렸어요 ✓");
 }
 let syncState="bad", syncMsg="연결 중…";
 function setSync(state,msg){
@@ -1642,10 +1679,19 @@ function openSettings(){
         : '<div class="muted" style="margin-bottom:10px">아직 팀 코드가 없어요. 지금은 이 기기에만 저장됩니다.</div>'
           + '<button class="btn full sm" onclick="openTeamGate()">팀 코드 설정하기</button>')
     + '</div>';
+  const snap = snapInfo();
   b += '<div class="card"><div class="sec-t">💾 백업</div>'
     + '<div class="grid2" style="margin-top:2px">'
     + '<button class="btn g sm" onclick="backup()">💾 백업 파일</button>'
-    + '<button class="btn g sm" onclick="restore()">📂 복원</button></div></div>';
+    + '<button class="btn g sm" onclick="restore()">📂 복원</button></div>'
+    + (snap
+        ? '<div class="divh"></div><div class="row"><div class="sp"><div class="li-t">🕘 자동 백업</div>'
+          + '<div class="li-s">'+new Date(snap.t).toLocaleString("ko-KR")+' · 자재 '+((snap.d.stock||[]).length)
+          + '개 · 레시피 '+((snap.d.recipes||[]).length)+'개</div></div>'
+          + '<button class="btn sm" onclick="restoreSnap()">되돌리기</button></div>'
+          + '<div class="muted" style="margin-top:7px">다른 기기 자료로 바뀌기 직전 상태예요</div>'
+        : '')
+    + '</div>';
   b += '<button class="btn full" onclick="saveSettings()">저장</button>';
   b += '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="resetAll()">전체 데이터 초기화</button>';
   sheet("설정", b);
@@ -1672,7 +1718,14 @@ function makeTeam(){
 function joinTeam(){
   const v = document.getElementById("tCode").value;
   if(!v.trim()){ toast("코드를 입력하세요"); return; }
-  if(!confirm("이 기기를 팀에 연결할까요?\n연결하면 팀 자료를 내려받아 현재 내용을 덮어씁니다.")) return;
+  let msg = "이 기기를 팀에 연결할까요?";
+  if(hasContent(data)){
+    msg += "\n\n지금 이 기기에 자재 "+data.stock.length+"개 · 레시피 "+data.recipes.length
+        +  "개 · 직원 "+data.staff.length+"명이 있어요."
+        +  "\n팀에 자료가 있으면 팀 것으로 바뀌고, 팀이 비어 있으면 이 기기 자료가 팀에 올라갑니다."
+        +  "\n(바뀌기 전 상태는 설정 → 자동 백업에서 되돌릴 수 있어요)";
+  }
+  if(!confirm(msg)) return;
   if(setTeam(v)){ closeSheet(); toast("연결했어요 ✓"); }
 }
 function tog(id,label,on){

@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23f";
+const APP_VER    = "2026-08-23g";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -295,7 +295,7 @@ let recipeCat = "전체", recipeQ = "";
 let workSub = "punch";                                     // punch | pay
 let workDate = new Date();
 let payMonth = monthKey(new Date());
-let stockCat = "전체", stockQ = "", stockSub = "list";      // list | log
+let stockCat = "전체", stockQ = "", stockSub = "list", stockSort = "low";
 let chkArea = "hall", chkPeriod = "daily", chkDate = new Date();
 
 /* ═══ 유틸 ═══ */
@@ -1259,10 +1259,29 @@ function editRecipe(id){
   sheet(id?"레시피 수정":"새 레시피", b);
   drawCats(); drawIngs(); drawSteps();
 }
+/* 재료 선택 목록 — 분류별로 묶고 각 분류 안은 가나다순 */
 function stockOptions(sel){
   let o = '<option value="">직접 입력</option>';
-  data.stock.forEach(function(i){
-    o += '<option value="'+i.id+'" '+(sel===i.id?"selected":"")+'>'+esc(i.name)+(i.unit?' ('+esc(i.unit)+')':'')+'</option>';
+  const groups={}, order=[];
+  data.stock.slice()
+    .sort(function(a,b){ return (a.name||"").localeCompare(b.name||"","ko"); })
+    .forEach(function(i){
+      const g = i.cat || "기타";
+      if(!groups[g]){ groups[g]=[]; order.push(g); }
+      groups[g].push(i);
+    });
+  order.sort(function(a,b){
+    if(a==="기타") return 1;
+    if(b==="기타") return -1;
+    return a.localeCompare(b,"ko");
+  });
+  order.forEach(function(g){
+    o += '<optgroup label="'+esc(g)+'">';
+    groups[g].forEach(function(i){
+      o += '<option value="'+i.id+'" '+(sel===i.id?"selected":"")+'>'
+        +  esc(i.name)+(i.unit?' ('+esc(i.unit)+')':'')+'</option>';
+    });
+    o += '</optgroup>';
   });
   return o;
 }
@@ -1383,10 +1402,14 @@ function viewStock(){
       + '<div class="li-s">'+low.slice(0,4).map(function(i){return esc(i.name);}).join(", ")+(low.length>4?" 외":"")+'</div></div>'
       + '<button class="btn sm bad" onclick="orderSheet()">발주서</button></div></div>';
   }
-  const cats = ["전체"].concat(stockCats());
+  const cats = ["전체"].concat(stockCats().sort(function(a,b){ return a.localeCompare(b,"ko"); }));
   html += '<div class="row" style="margin-bottom:10px">'
     + '<input class="sp" placeholder="🔍 자재 검색" value="'+esc(stockQ)+'" oninput="stockQ=this.value;renderStockList()">'
     + '<button class="btn sm" onclick="editItem(null)">+ 추가</button></div>'
+    + '<div class="row" style="margin-bottom:8px"><div class="muted sp">정렬</div>'
+    + [["low","부족 먼저"],["name","가나다"],["cat","분류별"]].map(function(s){
+        return '<button class="chip '+(stockSort===s[0]?"on":"")+'" onclick="stockSort=\''+s[0]+'\';render()">'+s[1]+'</button>';
+      }).join(" ")+'</div>'
     + '<div class="chips">'+cats.map(function(c){
         return '<button class="chip '+(stockCat===c?"on":"")+'" onclick="stockCat=\''+jsq(c)+'\';render()">'+esc(c)+'</button>'; }).join("")+'</div>'
     + '<div id="slist">'+stockListHtml()+'</div>';
@@ -1400,13 +1423,29 @@ function stockListHtml(){
     if(!q) return true;
     return (i.name||"").toLowerCase().indexOf(q)>=0 || (i.vendor||"").toLowerCase().indexOf(q)>=0;
   });
-  list.sort(function(a,b){
-    if(isLow(a)!==isLow(b)) return isLow(a)?-1:1;
-    return (a.name||"").localeCompare(b.name||"");
-  });
+  const byName = function(a,b){ return (a.name||"").localeCompare(b.name||"","ko"); };
+  if(stockSort==="name"){
+    list.sort(byName);
+  } else if(stockSort==="cat"){
+    list.sort(function(a,b){
+      const ca=a.cat||"힣기타", cb=b.cat||"힣기타";
+      if(ca!==cb) return ca.localeCompare(cb,"ko");
+      return byName(a,b);
+    });
+  } else {
+    list.sort(function(a,b){
+      if(isLow(a)!==isLow(b)) return isLow(a)?-1:1;
+      return byName(a,b);
+    });
+  }
   if(!list.length) return '<div class="card"><div class="empty">자재가 없어요.<br>+ 추가로 자주 쓰는 재료부터 등록해 보세요.</div></div>';
-  let h='<div class="card">';
+  let h='<div class="card">', lastCat=null;
   list.forEach(function(i){
+    if(stockSort==="cat"){
+      const c=i.cat||"기타";
+      if(c!==lastCat){ lastCat=c;
+        h += '<div class="sec-t" style="margin:12px 0 2px">'+esc(c)+'</div>'; }
+    }
     h += '<div class="li"><div class="sp" onclick="showItem(\''+i.id+'\')">'
       + '<div class="li-t">'+esc(i.name)+(isLow(i)?' <span class="bdg bad">부족</span>':'')+'</div>'
       + '<div class="li-s">재고 <b>'+num(i.stock)+esc(i.unit||"")+'</b>'

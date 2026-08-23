@@ -80,6 +80,8 @@ header{
 .chip{flex:none;padding:7px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);
   font-size:13px;font-weight:700;color:var(--sub)}
 .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.chips.wrap{flex-wrap:wrap;overflow:visible;padding-bottom:0}
+.chip.add{border-style:dashed;color:var(--brand);border-color:var(--brand)}
 .seg{display:flex;background:#eeecea;border-radius:11px;padding:3px;gap:3px;margin-bottom:12px}
 .seg button{flex:1;padding:8px 4px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--sub)}
 .seg button.on{background:#fff;color:var(--brand);box-shadow:var(--sh)}
@@ -231,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23e";
+const APP_VER    = "2026-08-23f";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1210,20 +1212,42 @@ function printGo(idsStr){
 function printCurrentList(){ printDlg(filteredRecipes().map(function(r){ return r.id; })); }
 
 /* ═══ 레시피 편집 ═══ */
-let tmpIngs=[], tmpSteps=[], editingRecipe=null;
+let tmpIngs=[], tmpSteps=[], editingRecipe=null, tmpCat="";
+const BASE_RECIPE_CATS = ["탕·전골","오뎅","튀김","볶음","조림","사이드","안주","음료","소스·육수"];
+function catChoices(){
+  const seen={}, out=[];
+  recipeCats().concat(BASE_RECIPE_CATS).forEach(function(c){
+    if(c && !seen[c]){ seen[c]=1; out.push(c); }
+  });
+  if(tmpCat && !seen[tmpCat]) out.unshift(tmpCat);
+  return out;
+}
+function drawCats(){
+  const box=document.getElementById("catBox"); if(!box) return;
+  box.innerHTML = catChoices().map(function(c){
+      return '<button class="chip '+(tmpCat===c?"on":"")+'" onclick="pickCat(\''+jsq(c)+'\')">'+esc(c)+'</button>';
+    }).join("")
+    + '<button class="chip add" onclick="newCat()">＋ 분류 추가</button>';
+}
+function pickCat(c){ tmpCat = (tmpCat===c ? "" : c); drawCats(); }
+function newCat(){
+  const v = prompt("새 분류 이름을 입력하세요 (예: 계절메뉴)");
+  if(v===null) return;
+  const t = v.trim(); if(!t) return;
+  tmpCat = t; drawCats();
+}
 function editRecipe(id){
   const r = id? recipeById(id):null;
   editingRecipe = id||"";
+  tmpCat = r? (r.cat||"") : "";
   tmpIngs  = r? JSON.parse(JSON.stringify(r.ings||[])) : [];
   tmpSteps = r? (r.steps||[]).slice() : [];
   if(!tmpIngs.length) tmpIngs.push({sid:"",name:"",qty:"",unit:""});
   if(!tmpSteps.length) tmpSteps.push("");
-  const cats = recipeCats();
+
   const b = '<div class="f"><label>메뉴 이름</label><input id="cN" value="'+(r?esc(r.name):"")+'" placeholder="예: 매운 오뎅탕"></div>'
-    + '<div class="grid2">'
-    + '<div class="f"><label>분류</label><input id="cC" list="catList" value="'+(r?esc(r.cat):"")+'" placeholder="탕/튀김/사이드">'
-    + '<datalist id="catList">'+cats.map(function(c){return '<option value="'+esc(c)+'">';}).join("")+'</datalist></div>'
-    + '<div class="f"><label>분량</label><input id="cY" value="'+(r?esc(r.yield):"")+'" placeholder="1인분 / 10인분"></div></div>'
+    + '<div class="f"><label>분류 (눌러서 선택)</label><div class="chips wrap" id="catBox"></div></div>'
+    + '<div class="f"><label>분량</label><input id="cY" value="'+(r?esc(r.yield):"")+'" placeholder="1인분 / 10인분"></div>'
     + '<div class="card"><div class="row" style="margin-bottom:8px"><div class="sec-t sp" style="margin:0">🥕 재료</div>'
     + '<button class="btn xs g" onclick="addIng()">+ 재료</button></div><div id="ingBox"></div>'
     + '<div class="muted" style="margin-top:6px">💡 자재에 등록된 재료를 고르면 재고와 연결돼요 (직접 입력도 가능)</div></div>'
@@ -1233,7 +1257,7 @@ function editRecipe(id){
     + '<button class="btn full" onclick="saveRecipe()">저장</button>'
     + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delRecipe(\''+id+'\')">삭제</button>':'');
   sheet(id?"레시피 수정":"새 레시피", b);
-  drawIngs(); drawSteps();
+  drawCats(); drawIngs(); drawSteps();
 }
 function stockOptions(sel){
   let o = '<option value="">직접 입력</option>';
@@ -1279,7 +1303,7 @@ function saveRecipe(){
   let r = editingRecipe? recipeById(editingRecipe):null;
   if(!r){ r={id:uid()}; data.recipes.push(r); }
   r.name=n;
-  r.cat=document.getElementById("cC").value.trim();
+  r.cat=tmpCat;
   r.yield=document.getElementById("cY").value.trim();
   r.tip=document.getElementById("cT").value;
   r.ings = tmpIngs.filter(function(g){ return (g.name||"").trim(); })
@@ -1305,6 +1329,46 @@ function vendors(){
   return Object.keys(set);
 }
 function setVendor(v){ const el=document.getElementById("iV"); if(el) el.value=v; }
+
+/* 자재 분류·단위 선택 */
+const BASE_STOCK_CATS = ["어묵","야채","육류","수산","면·분식","양념·소스","음료·주류","포장·소모품"];
+const BASE_UNITS = ["kg","g","개","봉","박스","팩","병","L","ml","단"];
+let tmpItemCat = "";
+function itemCatChoices(){
+  const seen={}, out=[];
+  stockCats().concat(BASE_STOCK_CATS).forEach(function(c){ if(c && !seen[c]){ seen[c]=1; out.push(c); } });
+  if(tmpItemCat && !seen[tmpItemCat]) out.unshift(tmpItemCat);
+  return out;
+}
+function drawItemCats(){
+  const box=document.getElementById("icatBox"); if(!box) return;
+  box.innerHTML = itemCatChoices().map(function(c){
+      return '<button class="chip '+(tmpItemCat===c?"on":"")+'" onclick="pickItemCat(\''+jsq(c)+'\')">'+esc(c)+'</button>';
+    }).join("")
+    + '<button class="chip add" onclick="newItemCat()">＋ 분류 추가</button>';
+  const ub=document.getElementById("iunitBox");
+  if(ub){
+    const cur=(document.getElementById("iU")||{}).value||"";
+    const units={}, ulist=[];
+    data.stock.forEach(function(i){ if(i.unit) units[i.unit]=1; });
+    BASE_UNITS.forEach(function(u){ units[u]=1; });
+    for(const u in units) ulist.push(u);
+    ub.innerHTML = ulist.map(function(u){
+      return '<button class="chip '+(cur===u?"on":"")+'" onclick="pickUnit(\''+jsq(u)+'\')">'+esc(u)+'</button>';
+    }).join("");
+  }
+}
+function pickItemCat(c){ tmpItemCat = (tmpItemCat===c ? "" : c); drawItemCats(); }
+function newItemCat(){
+  const v = prompt("새 분류 이름을 입력하세요 (예: 냉동)");
+  if(v===null) return;
+  const t=v.trim(); if(!t) return;
+  tmpItemCat = t; drawItemCats();
+}
+function pickUnit(u){
+  const el=document.getElementById("iU"); if(!el) return;
+  el.value = (el.value===u? "" : u); drawItemCats();
+}
 function isLow(i){ return num(i.min)>0 && num(i.stock) <= num(i.min); }
 function viewStock(){
   let html = '<div class="seg">'
@@ -1450,12 +1514,11 @@ function doMove(id,type){
 }
 function editItem(id){
   const i = id? stockById(id):null;
-  const cats = stockCats();
+  tmpItemCat = i? (i.cat||"") : "";
   const b = '<div class="f"><label>자재명</label><input id="iN" value="'+(i?esc(i.name):"")+'" placeholder="예: 부산어묵 사각"></div>'
-    + '<div class="grid2">'
-    + '<div class="f"><label>분류</label><input id="iC" list="scat" value="'+(i?esc(i.cat):"")+'" placeholder="어묵/야채/소스">'
-    + '<datalist id="scat">'+cats.map(function(c){return '<option value="'+esc(c)+'">';}).join("")+'</datalist></div>'
-    + '<div class="f"><label>단위</label><input id="iU" value="'+(i?esc(i.unit):"")+'" placeholder="kg / 봉 / 박스"></div></div>'
+    + '<div class="f"><label>분류 (눌러서 선택)</label><div class="chips wrap" id="icatBox"></div></div>'
+    + '<div class="f"><label>단위 (눌러서 선택)</label><div class="chips wrap" id="iunitBox"></div>'
+    + '<input id="iU" value="'+(i?esc(i.unit):"")+'" placeholder="직접 입력도 가능 (kg / 봉 / 박스)" style="margin-top:7px"></div>'
     + '<div class="grid3">'
     + '<div class="f"><label>현재고</label><input type="number" step="any" id="iS" value="'+(i?num(i.stock):0)+'"></div>'
     + '<div class="f"><label>최소 보유</label><input type="number" step="any" id="iM" value="'+(i?num(i.min):0)+'"></div>'
@@ -1471,6 +1534,7 @@ function editItem(id){
     + '<button class="btn full" onclick="saveItem(\''+(id||"")+'\')">저장</button>'
     + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delItem(\''+id+'\')">삭제</button>':'');
   sheet(id?"자재 수정":"자재 추가", b);
+  drawItemCats();
 }
 function saveItem(id){
   const n=document.getElementById("iN").value.trim();
@@ -1478,7 +1542,7 @@ function saveItem(id){
   let i = id? stockById(id):null;
   if(!i){ i={id:uid()}; data.stock.push(i); }
   i.name=n;
-  i.cat=document.getElementById("iC").value.trim();
+  i.cat=tmpItemCat;
   i.unit=document.getElementById("iU").value.trim();
   i.stock=num(document.getElementById("iS").value);
   i.min=num(document.getElementById("iM").value);

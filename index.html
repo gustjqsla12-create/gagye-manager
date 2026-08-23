@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23h";
+const APP_VER    = "2026-08-23i";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1314,7 +1314,8 @@ function viewRecipe(){
   const cats = ["전체"].concat(recipeCats());
   let html = '<div class="row" style="margin-bottom:10px">'
     + '<input id="rq" class="sp" placeholder="🔍 메뉴·재료 검색" value="'+esc(recipeQ)+'" oninput="recipeQ=this.value;renderRecipeList()">'
-    + '<button class="btn sm" onclick="editRecipe(null)">+ 추가</button></div>';
+    + '<button class="btn sm" onclick="editRecipe(null)">+ 추가</button></div>'
+    + '<button class="btn full sm blue" style="margin-bottom:10px" onclick="quickSheet()">⚡ 붙여넣기로 빠르게 작성</button>';
   html += '<div class="chips">'+cats.map(function(c){
       return '<button class="chip '+(recipeCat===c?"on":"")+'" onclick="recipeCat=\''+jsq(c)+'\';render()">'+esc(c)+'</button>';
     }).join("")+'</div>';
@@ -1377,11 +1378,20 @@ function showRecipe(id){
 
   if(r.tip) b += '<div class="card"><div class="sec-t">💡 포인트 · 주의</div><div>'+esc(r.tip).replace(/\n/g,"<br>")+'</div></div>';
 
-  b += '<div class="grid3"><button class="btn g" onclick="copyRecipe(\''+r.id+'\')">📋 복사</button>'
+  b += '<button class="btn g full sm" style="margin-bottom:9px" onclick="dupRecipe(\''+r.id+'\')">📄 이 레시피로 새로 만들기 (복제)</button>'
+    + '<div class="grid3"><button class="btn g" onclick="copyRecipe(\''+r.id+'\')">📋 복사</button>'
     + '<button class="btn blue" onclick="printDlg([\''+r.id+'\'])">🖨️ 인쇄</button>'
     + '<button class="btn" onclick="editRecipe(\''+r.id+'\')">✏️ 수정</button></div>'
     + '<div class="muted" style="text-align:center;margin-top:10px">'+(r.by?'작성 '+esc(r.by)+' · ':'')+(r.updated||"")+'</div>';
   sheet("레시피", b);
+}
+function dupRecipe(id){
+  const r=recipeById(id); if(!r) return;
+  editRecipe(null, {
+    name: r.name+" (복사)", cat:r.cat, yield:r.yield, tip:r.tip,
+    ings: JSON.parse(JSON.stringify(r.ings||[])), steps:(r.steps||[]).slice()
+  });
+  toast("복제했어요 — 이름과 재료를 고쳐 저장하세요");
 }
 function copyRecipe(id){
   const r=recipeById(id); if(!r) return;
@@ -1444,6 +1454,80 @@ function printGo(idsStr){
 }
 function printCurrentList(){ printDlg(filteredRecipes().map(function(r){ return r.id; })); }
 
+/* ═══ 빠른 작성 (통째로 붙여넣기 → 자동 분리) ═══ */
+const QUICK_SAMPLE = "매운 오뎅탕\n2인분\n\n[재료]\n부산옛날어묵 2봉\n무 0.5개\n대파 1대\n고춧가루 30g\n\n[순서]\n육수 1.2L를 끓인다\n무를 나박 썰어 10분 끓인다\n어묵을 넣고 5분 더\n고춧가루로 매운 양념을 푼다\n\n[팁]\n고춧가루는 마지막에 풀어야 텁텁하지 않음";
+function quickSheet(){
+  const b = '<div class="card tight"><div class="muted">메모장·카톡에 적어둔 레시피를 그대로 붙여넣으세요. '
+    + '재료와 조리순서를 알아서 나눠 드립니다.<br>키보드의 🎤 버튼으로 말해서 넣어도 돼요.</div></div>'
+    + '<div class="f"><label>레시피 내용</label>'
+    + '<textarea id="qTxt" style="min-height:220px" placeholder="'+esc(QUICK_SAMPLE)+'"></textarea></div>'
+    + '<div class="grid2"><button class="btn g" onclick="quickFill(QUICK_SAMPLE)">예시 넣어보기</button>'
+    + '<button class="btn" onclick="quickGo()">변환하기 →</button></div>'
+    + '<div class="muted" style="margin-top:10px">💡 [재료] [순서] [팁] 처럼 구분해 적으면 가장 정확해요. '
+    + '구분이 없으면 “이름 + 수량”처럼 생긴 줄은 재료로, 나머지는 조리순서로 나눕니다.</div>';
+  sheet("⚡ 빠르게 작성", b);
+}
+function quickFill(t){ const el=document.getElementById("qTxt"); if(el) el.value=t; }
+function matchStock(name){
+  const n=String(name||"").trim();
+  if(!n) return null;
+  let hit = data.stock.filter(function(i){ return i.name===n; })[0];
+  if(hit) return hit;
+  const part = data.stock.filter(function(i){
+    return i.name.indexOf(n)>=0 || n.indexOf(i.name)>=0;
+  });
+  return part.length===1 ? part[0] : null;   /* 애매하면 연결하지 않음 */
+}
+function quickParse(raw){
+  const out={ name:"", cat:"", yield:"", ings:[], steps:[], tip:"" };
+  const lines = String(raw||"").split(/\r?\n/);
+  let mode="head";
+  lines.forEach(function(ln){
+    let s = ln.trim();
+    if(!s) return;
+    const head = s.replace(/[\[\]()【】]/g,"").trim();
+    if(/^재료/.test(head) && head.length<=6){ mode="ing"; return; }
+    if(/^(조리|순서|만드는|레시피|조리순서|만드는법)/.test(head) && head.length<=8){ mode="step"; return; }
+    if(/^(팁|포인트|주의|비고)/.test(head) && head.length<=8){ mode="tip"; return; }
+    s = s.replace(/^[-·•*•]\s*/,"").replace(/^\d+[.)]\s*/,"");
+    if(!s) return;
+
+    if(mode==="head"){
+      if(!out.name){ out.name=s; return; }
+      if(!out.yield && /(인분|인용|그릇|판|접시|kg|L)/.test(s) && s.length<=10){ out.yield=s; return; }
+      mode="step";
+    }
+    if(mode==="ing"){
+      const m = s.match(/^(.+?)\s+([0-9]+(?:[.,][0-9]+)?)\s*([^\s0-9]{0,4})$/);
+      if(m) out.ings.push({ name:m[1].trim(), qty:num(m[2].replace(",",".")), unit:(m[3]||"").trim() });
+      else  out.ings.push({ name:s, qty:"", unit:"" });
+      return;
+    }
+    if(mode==="tip"){ out.tip += (out.tip?"\n":"")+s; return; }
+
+    /* 구분 없이 쓴 경우: 짧고 수량으로 끝나면 재료로 본다 */
+    const g = s.match(/^(.{1,14}?)\s+([0-9]+(?:[.,][0-9]+)?)\s*([^\s0-9]{0,4})$/);
+    if(g && s.length<=22) out.ings.push({ name:g[1].trim(), qty:num(g[2].replace(",",".")), unit:(g[3]||"").trim() });
+    else out.steps.push(s);
+  });
+  /* 자재와 자동 연결 */
+  out.ings.forEach(function(g){
+    const it = matchStock(g.name);
+    if(it){ g.sid=it.id; g.name=it.name; if(!g.unit) g.unit=it.unit||""; }
+    else g.sid="";
+  });
+  return out;
+}
+function quickGo(){
+  const t=document.getElementById("qTxt").value;
+  if(!t.trim()){ toast("내용을 붙여넣어 주세요"); return; }
+  const p=quickParse(t);
+  if(!p.name){ toast("메뉴 이름을 찾지 못했어요. 첫 줄에 메뉴명을 적어주세요"); return; }
+  const linked = p.ings.filter(function(g){ return g.sid; }).length;
+  editRecipe(null, p);
+  toast("재료 "+p.ings.length+"개 · 순서 "+p.steps.length+"단계"+(linked?" · 자재 "+linked+"개 연결":"")+" ✓ 확인 후 저장하세요");
+}
+
 /* ═══ 레시피 편집 ═══ */
 let tmpIngs=[], tmpSteps=[], editingRecipe=null, tmpCat="";
 const BASE_RECIPE_CATS = ["탕·전골","오뎅","튀김","볶음","조림","사이드","안주","음료","소스·육수"];
@@ -1469,8 +1553,8 @@ function newCat(){
   const t = v.trim(); if(!t) return;
   tmpCat = t; drawCats();
 }
-function editRecipe(id){
-  const r = id? recipeById(id):null;
+function editRecipe(id, preset){
+  const r = id? recipeById(id) : (preset||null);
   editingRecipe = id||"";
   tmpCat = r? (r.cat||"") : "";
   tmpIngs  = r? JSON.parse(JSON.stringify(r.ings||[])) : [];
@@ -1482,15 +1566,18 @@ function editRecipe(id){
     + '<div class="f"><label>분류 (눌러서 선택)</label><div class="chips wrap" id="catBox"></div></div>'
     + '<div class="f"><label>분량</label><input id="cY" value="'+(r?esc(r.yield):"")+'" placeholder="1인분 / 10인분"></div>'
     + '<div class="card"><div class="row" style="margin-bottom:8px"><div class="sec-t sp" style="margin:0">🥕 재료</div>'
-    + '<button class="btn xs g" onclick="addIng()">+ 재료</button></div><div id="ingBox"></div>'
-    + '<div class="muted" style="margin-top:6px">💡 자재에 등록된 재료를 고르면 재고와 연결돼요 (직접 입력도 가능)</div></div>'
+    + '<button class="btn xs g" onclick="addIng()">+ 재료</button></div>'
+    + '<div class="muted" style="margin-bottom:5px">자주 쓰는 재료 — 눌러서 바로 추가</div>'
+    + '<div class="chips wrap" id="favBox"></div>'
+    + '<div id="ingBox" style="margin-top:9px"></div></div>'
     + '<div class="card"><div class="row" style="margin-bottom:8px"><div class="sec-t sp" style="margin:0">👨‍🍳 조리 순서</div>'
+    + '<button class="btn xs g" onclick="pasteSteps()">📋 여러 줄</button>'
     + '<button class="btn xs g" onclick="addStep()">+ 단계</button></div><div id="stepBox"></div></div>'
     + '<div class="f"><label>💡 포인트 · 주의사항</label><textarea id="cT" placeholder="불 세기, 간 맞추는 팁, 보관법 등">'+(r?esc(r.tip):"")+'</textarea></div>'
     + '<button class="btn full" onclick="saveRecipe()">저장</button>'
     + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delRecipe(\''+id+'\')">삭제</button>':'');
   sheet(id?"레시피 수정":"새 레시피", b);
-  drawCats(); drawIngs(); drawSteps();
+  drawCats(); drawFavs(); drawIngs(); drawSteps();
 }
 /* 재료 선택 목록 — 분류별로 묶고 각 분류 안은 가나다순 */
 function stockOptions(sel){
@@ -1536,6 +1623,47 @@ function pickIng(i,sid){
   tmpIngs[i].sid = sid;
   if(sid){ const it=stockById(sid); if(it){ tmpIngs[i].name=it.name; if(!tmpIngs[i].unit) tmpIngs[i].unit=it.unit||""; } }
   drawIngs();
+}
+/* 자주 쓰는 재료 = 레시피에 많이 쓰인 순 → 부족하면 최근 입고한 자재로 채움 */
+function favStock(){
+  const cnt={};
+  data.recipes.forEach(function(r){ (r.ings||[]).forEach(function(g){ if(g.sid) cnt[g.sid]=(cnt[g.sid]||0)+1; }); });
+  const used = Object.keys(cnt).sort(function(a,b){ return cnt[b]-cnt[a]; });
+  const recent = data.moves.slice().reverse()
+    .filter(function(m){ return m.type==="in"; })
+    .map(function(m){ return m.itemId; });
+  const out=[], seen={};
+  used.concat(recent).forEach(function(id){
+    if(seen[id] || !stockById(id)) return;
+    seen[id]=1; out.push(id);
+  });
+  data.stock.forEach(function(i){ if(!seen[i.id]){ seen[i.id]=1; out.push(i.id); } });
+  return out.slice(0,12).map(stockById).filter(function(i){ return i; });
+}
+function drawFavs(){
+  const box=document.getElementById("favBox"); if(!box) return;
+  const favs=favStock();
+  box.innerHTML = favs.length
+    ? favs.map(function(i){
+        return '<button class="chip" onclick="addFav(\''+i.id+'\')">'+esc(i.name)+'</button>';
+      }).join("")
+    : '<span class="muted">자재를 등록하면 여기에 뜹니다</span>';
+}
+function addFav(sid){
+  const it=stockById(sid); if(!it) return;
+  const empty = tmpIngs.filter(function(g){ return !(g.name||"").trim(); })[0];
+  if(empty){ empty.sid=sid; empty.name=it.name; empty.unit=it.unit||""; }
+  else tmpIngs.push({ sid:sid, name:it.name, qty:"", unit:it.unit||"" });
+  drawIngs(); toast(it.name+" 추가");
+}
+function pasteSteps(){
+  const v = prompt("조리 순서를 줄바꿈으로 구분해 붙여넣으세요\n(한 줄이 한 단계가 됩니다)");
+  if(v===null) return;
+  const arr = v.split(/\r?\n/).map(function(s){ return s.replace(/^\d+[.)]\s*/,"").trim(); })
+               .filter(function(s){ return s; });
+  if(!arr.length) return;
+  tmpSteps = tmpSteps.filter(function(s){ return (s||"").trim(); }).concat(arr);
+  drawSteps(); toast(arr.length+"단계 추가 ✓");
 }
 function addIng(){ tmpIngs.push({sid:"",name:"",qty:"",unit:""}); drawIngs(); }
 function delIng(i){ tmpIngs.splice(i,1); if(!tmpIngs.length) addIng(); else drawIngs(); }

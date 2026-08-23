@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23i";
+const APP_VER    = "2026-08-23j";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1495,7 +1495,7 @@ function quickParse(raw){
     if(mode==="head"){
       if(!out.name){ out.name=s; return; }
       if(!out.yield && /(인분|인용|그릇|판|접시|kg|L)/.test(s) && s.length<=10){ out.yield=s; return; }
-      mode="step";
+      mode="auto";
     }
     if(mode==="ing"){
       const m = s.match(/^(.+?)\s+([0-9]+(?:[.,][0-9]+)?)\s*([^\s0-9]{0,4})$/);
@@ -1505,9 +1505,15 @@ function quickParse(raw){
     }
     if(mode==="tip"){ out.tip += (out.tip?"\n":"")+s; return; }
 
-    /* 구분 없이 쓴 경우: 짧고 수량으로 끝나면 재료로 본다 */
+    /* [순서]로 명시된 줄은 무조건 조리순서 */
+    if(mode==="step"){ out.steps.push(s); return; }
+
+    /* 구분 없이 쓴 경우: 짧고 수량으로 끝나면 재료로 본다 (시간·동작 표현은 제외) */
     const g = s.match(/^(.{1,14}?)\s+([0-9]+(?:[.,][0-9]+)?)\s*([^\s0-9]{0,4})$/);
-    if(g && s.length<=22) out.ings.push({ name:g[1].trim(), qty:num(g[2].replace(",",".")), unit:(g[3]||"").trim() });
+    const timeish = g && /^(분|초|시간|회|번|도|인분)$/.test((g[3]||"").trim());
+    const verbish = /(다|요|자|세요|시오)$/.test(s);
+    if(g && s.length<=22 && !timeish && !verbish)
+      out.ings.push({ name:g[1].trim(), qty:num(g[2].replace(",",".")), unit:(g[3]||"").trim() });
     else out.steps.push(s);
   });
   /* 자재와 자동 연결 */

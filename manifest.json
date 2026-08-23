@@ -1,0 +1,16 @@
+{
+  "name": "가게관리 통합앱",
+  "short_name": "가게관리",
+  "description": "레시피 · 출퇴근/급여 · 자재 · 체크리스트를 한 곳에서",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f4f1",
+  "theme_color": "#c2410c",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

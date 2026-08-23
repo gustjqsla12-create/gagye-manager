@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#c2410c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="가게관리">
+<meta name="mobile-web-app-capable" content="yes">
+<title>가게관리 통합앱</title>
+<style>
+:root{
+  --bg:#f6f4f1; --card:#ffffff; --ink:#1c1917; --sub:#78716c; --line:#e7e5e4;
+  --brand:#c2410c; --brand-soft:#fff1e7; --brand-ink:#9a3412;
+  --ok:#15803d; --ok-soft:#eafaf0; --warn:#b45309; --warn-soft:#fef6e7;
+  --bad:#b91c1c; --bad-soft:#fdeceb; --blue:#1d4ed8; --blue-soft:#eef2ff;
+  --r:14px; --sh:0 1px 3px rgba(28,25,23,.07), 0 1px 2px rgba(28,25,23,.04);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;
+  background:var(--bg); color:var(--ink); font-size:15px; line-height:1.5;
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+}
+button,input,select,textarea{font-family:inherit;font-size:15px;color:inherit}
+button{cursor:pointer;border:none;background:none}
+input,select,textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;outline:none
+}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+textarea{resize:vertical;min-height:70px}
+
+header{
+  position:sticky;top:0;z-index:40;background:var(--brand);color:#fff;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+}
+.hd-row{display:flex;align-items:center;gap:8px}
+.hd-title{font-size:17px;font-weight:800;letter-spacing:-.3px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hd-btn{background:rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:6px 12px;
+  font-size:12.5px;font-weight:700;white-space:nowrap}
+.sync{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11.5px;opacity:.92}
+.dot{width:7px;height:7px;border-radius:50%;background:#86efac;flex:none}
+.dot.bad{background:#fca5a5}
+
+.wrap{padding:14px;max-width:720px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--sh);padding:14px;margin-bottom:12px}
+.card.tight{padding:11px 13px}
+.sec-t{font-size:12px;font-weight:800;color:var(--sub);letter-spacing:.4px;
+  margin:2px 0 9px;display:flex;align-items:center;gap:6px}
+.row{display:flex;align-items:center;gap:10px}
+.row.top{align-items:flex-start}
+.sp{flex:1;min-width:0}
+.muted{color:var(--sub);font-size:12.5px}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.f{margin-bottom:10px}
+.f label{display:block;font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:5px}
+
+.btn{background:var(--brand);color:#fff;border-radius:11px;padding:11px 15px;
+  font-weight:700;font-size:14.5px;text-align:center;display:inline-block}
+.btn.g{background:#f5f5f4;color:var(--ink);border:1px solid var(--line)}
+.btn.ok{background:var(--ok)}
+.btn.bad{background:var(--bad)}
+.btn.blue{background:var(--blue)}
+.btn.sm{padding:7px 12px;font-size:13px;border-radius:9px}
+.btn.xs{padding:5px 9px;font-size:12px;border-radius:8px}
+.btn.full{display:block;width:100%}
+.btn:active{filter:brightness(.93)}
+.btn.off{opacity:.45}
+
+.chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:7px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);
+  font-size:13px;font-weight:700;color:var(--sub)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.seg{display:flex;background:#eeecea;border-radius:11px;padding:3px;gap:3px;margin-bottom:12px}
+.seg button{flex:1;padding:8px 4px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--sub)}
+.seg button.on{background:#fff;color:var(--brand);box-shadow:var(--sh)}
+
+.bdg{display:inline-block;padding:2.5px 8px;border-radius:999px;font-size:11px;font-weight:800;
+  background:#f5f5f4;color:var(--sub);white-space:nowrap}
+.bdg.ok{background:var(--ok-soft);color:var(--ok)}
+.bdg.warn{background:var(--warn-soft);color:var(--warn)}
+.bdg.bad{background:var(--bad-soft);color:var(--bad)}
+.bdg.br{background:var(--brand-soft);color:var(--brand-ink)}
+.bdg.blue{background:var(--blue-soft);color:var(--blue)}
+
+.li{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:none}
+.li-t{font-weight:700;font-size:14.5px}
+.li-s{font-size:12.5px;color:var(--sub);margin-top:2px}
+.empty{text-align:center;color:var(--sub);font-size:13.5px;padding:26px 10px;line-height:1.7}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:9px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 10px;text-align:center}
+.tile b{display:block;font-size:19px;font-weight:800;letter-spacing:-.5px}
+.tile span{font-size:11.5px;color:var(--sub);font-weight:600}
+
+.chk{display:flex;align-items:flex-start;gap:11px;padding:10px 2px;border-bottom:1px solid var(--line)}
+.chk:last-child{border-bottom:none}
+.box{width:23px;height:23px;border-radius:7px;border:2px solid #d6d3d1;flex:none;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900}
+.box.on{background:var(--ok);border-color:var(--ok)}
+.chk.done .ctxt{color:#a8a29e;text-decoration:line-through}
+.ctxt{font-size:14.5px;line-height:1.45}
+
+.pbar{height:7px;background:#eeecea;border-radius:99px;overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .3s}
+
+nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:1px solid var(--line);
+  display:flex;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;
+  font-size:10.5px;font-weight:700;color:#a8a29e}
+nav button i{font-style:normal;font-size:21px;line-height:1}
+nav button.on{color:var(--brand)}
+
+.mask{position:fixed;inset:0;background:rgba(28,25,23,.5);z-index:100;display:none;
+  align-items:flex-end;justify-content:center}
+.mask.on{display:flex}
+.sheet{background:var(--bg);width:100%;max-width:720px;max-height:92vh;overflow-y:auto;
+  border-radius:20px 20px 0 0}
+.sheet-hd{position:sticky;top:0;background:var(--bg);padding:14px 16px 10px;z-index:2;
+  display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.sheet-hd b{flex:1;font-size:16.5px;font-weight:800}
+.sheet-bd{padding:14px 16px calc(20px + env(safe-area-inset-bottom))}
+.x{width:30px;height:30px;border-radius:50%;background:#eeecea;color:var(--sub);font-size:17px;font-weight:700;flex:none}
+@media(min-width:721px){ .mask{align-items:center} .sheet{border-radius:20px;max-height:88vh} }
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:200;
+  background:#1c1917;color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:600;
+  opacity:0;pointer-events:none;transition:opacity .25s;max-width:88%;text-align:center}
+.toast.on{opacity:.96}
+.kv{display:flex;justify-content:space-between;padding:6.5px 0;font-size:14px;border-bottom:1px dashed var(--line)}
+.kv:last-child{border-bottom:none}
+.kv b{font-weight:700}
+.kv.big{font-size:16.5px;padding:11px 0;border-bottom:none}
+.kv.big b{color:var(--brand);font-weight:800}
+.step{display:flex;gap:10px;padding:8px 0;align-items:flex-start}
+.step-n{width:22px;height:22px;border-radius:50%;background:var(--brand-soft);color:var(--brand-ink);
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.divh{height:1px;background:var(--line);margin:12px 0}
+.pin{letter-spacing:8px;text-align:center;font-size:22px;font-weight:800;padding:12px}
+.big-punch{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.big-punch button{padding:20px 8px;border-radius:14px;font-size:17px;font-weight:800;color:#fff}
+.punch-in{background:var(--ok)} .punch-out{background:var(--bad)}
+
+/* ── 인쇄 ── */
+#printArea{display:none}
+@media print{
+  @page{ size:A4; margin:12mm 11mm; }
+  header,nav,.wrap,.mask,.toast{display:none !important}
+  html,body{background:#fff !important;padding:0 !important;margin:0 !important}
+  #printArea{display:block;color:#000}
+  .p-sheet{page-break-after:always;break-after:page}
+  .p-sheet:last-child{page-break-after:auto;break-after:auto}
+  .p-ings,.p-step,.p-tip{page-break-inside:avoid;break-inside:avoid}
+}
+.p-sheet{font-family:-apple-system,"Malgun Gothic","맑은 고딕",sans-serif;line-height:1.45}
+.p-store{font-size:11pt;color:#444;letter-spacing:1px}
+.p-h1{font-size:30pt;font-weight:800;margin:2mm 0 1mm;letter-spacing:-1px}
+.p-sub{font-size:12pt;color:#333;margin-bottom:4mm}
+.p-rule{border:none;border-top:3px solid #000;margin:3mm 0 5mm}
+.p-h2{font-size:14pt;font-weight:800;margin:0 0 2.5mm;padding-bottom:1.5mm;border-bottom:1.5px solid #000}
+.p-ings{width:100%;border-collapse:collapse;margin-bottom:7mm}
+.p-ings td{border-bottom:1px solid #bbb;padding:2.6mm 1mm;font-size:13pt;vertical-align:top}
+.p-ings td.q{text-align:right;font-weight:800;white-space:nowrap;width:32%}
+.p-step{display:flex;gap:4mm;margin-bottom:3.6mm;font-size:13.5pt}
+.p-step b{flex:none;width:8mm;height:8mm;border-radius:50%;background:#000;color:#fff;
+  font-size:10.5pt;display:flex;align-items:center;justify-content:center;margin-top:.6mm}
+.p-tip{border:1.5px solid #000;border-radius:2mm;padding:3.5mm 4mm;font-size:12pt;margin-top:5mm}
+.p-foot{margin-top:7mm;padding-top:2.5mm;border-top:1px solid #999;font-size:9.5pt;color:#555;
+  display:flex;justify-content:space-between}
+#printArea.big .p-h1{font-size:38pt}
+#printArea.big .p-ings td{font-size:17pt;padding:3.4mm 1mm}
+#printArea.big .p-step{font-size:17pt;margin-bottom:5mm}
+#printArea.big .p-step b{width:10mm;height:10mm;font-size:12pt}
+#printArea.big .p-h2{font-size:17pt}
+#printArea.big .p-tip{font-size:15pt}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd-row">
+    <div class="hd-title" id="hdTitle">🍢 가게관리</div>
+    <button class="hd-btn" id="meBtn" onclick="openMe()">👤 나</button>
+    <button class="hd-btn" onclick="openSettings()">⚙️</button>
+  </div>
+  <div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">연결 중…</span></div>
+</header>
+
+<div class="wrap" id="view"></div>
+
+<nav id="nav">
+  <button data-tab="home"   onclick="go('home')"><i>🏠</i>홈</button>
+  <button data-tab="recipe" onclick="go('recipe')"><i>📖</i>레시피</button>
+  <button data-tab="work"   onclick="go('work')"><i>⏱️</i>근태·급여</button>
+  <button data-tab="stock"  onclick="go('stock')"><i>📦</i>자재</button>
+  <button data-tab="check"  onclick="go('check')"><i>✅</i>체크</button>
+</nav>
+
+<div class="mask" id="mask" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet">
+    <div class="sheet-hd"><b id="shTitle"></b><button class="x" onclick="closeSheet()">✕</button></div>
+    <div class="sheet-bd" id="shBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="printArea"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   실시간 공유 설정 — 같은 TEAM_ID를 쓰는 기기끼리 데이터가 공유됩니다.
+   (컴핏 Firebase 프로젝트 재사용)
+   ═══════════════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD_rWjtzw5VPt2nNhTzS-jafJv-f22T-v0",
+  authDomain: "comfit-3e641.firebaseapp.com",
+  projectId: "comfit-3e641",
+  storageBucket: "comfit-3e641.firebasestorage.app",
+  messagingSenderId: "573481987394",
+  appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
+};
+const COLLECTION = "store-manager";
+const LS_KEY     = "sm-data-v1";
+/* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
+   같은 코드를 넣은 기기끼리만 데이터가 공유돼요. */
+let TEAM_ID = "";
+</script>
+<script>
+/* ═══ 기본 체크리스트 항목 ═══ */
+const DEFAULT_CHK = {
+  hall: {
+    daily: {
+      "오픈 준비": ["매장 바닥·테이블·의자 청소 상태 확인","테이블 세팅 (수저·물티슈·메뉴판)","출입문·유리창 얼룩 제거","간판·매장 조명 점등 확인","냉난방기 작동 및 적정 온도 설정","POS기·카드단말기 작동 확인","잔돈(시재) 준비 및 확인","화장실 청소·비품(휴지·비누) 확인","물컵·물병·셀프바 준비","매장 음악·방송 상태 확인"],
+      "마감 정리": ["테이블·의자 정리 및 소독","홀 바닥 쓸기·걸레질","쓰레기 분리수거 및 배출","화장실 마감 청소","POS 정산·시재 확인","냉난방기·조명·간판 소등","전열기구 플러그·콘센트 확인","출입문 잠금·보안장치 설정"]
+    },
+    weekly: { "주간 점검": ["창문·유리 전체 청소","에어컨·공조기 필터 청소","테이블·의자 파손(흔들림) 점검","벽면·몰딩·선반 먼지 제거","메뉴판·POP·안내물 상태 점검","홀 소모품(티슈·소독제 등) 재고 확인"] },
+    monthly: {
+      "1주차": ["간판·외부 조명 점검","소방시설(소화기·비상구 유도등) 점검"],
+      "2주차": ["냉난방기 상태 점검(필요 시 전문 점검)","홀 대청소(벽·천장·조명 커버)"],
+      "3주차": ["인테리어·집기 파손 보수 확인","의자·테이블 수평·나사 조임 점검"],
+      "4주차": ["좌석 배치·고객 동선 재점검","홀 비품·소모품 월간 재고 정리"]
+    }
+  },
+  kitchen: {
+    daily: {
+      "오픈 준비": ["냉장고 온도 확인 (0~5℃)","냉동고 온도 확인 (-18℃ 이하)","식자재 유통기한·신선도 확인","해동·전처리 식자재 준비","칼·도마·조리기구 위생 상태 확인","가스밸브 개방 및 누출 여부 확인","손세정제·소독제 비치 확인","위생모·위생복·앞치마 착용","식기세척기 작동 확인"],
+      "마감 정리": ["남은 식자재 밀봉·라벨링 후 보관","냉장·냉동고 온도 재확인 및 문 닫힘 확인","조리대·싱크대 세척 및 소독","칼·도마 소독 후 정위치 보관","주방 바닥 청소·배수구 세척","후드·화구 주변 기름때 제거","가스밸브 잠금 확인","음식물·일반 쓰레기 배출","전기 조리기구 전원 차단"]
+    },
+    weekly: { "주간 점검": ["냉장·냉동고 내부 청소 및 정리","후드 필터 분리 세척","제빙기 청소","튀김기 기름 교체·오븐 딥클리닝","배수구·트렌치 대청소","식자재 재고 실사(선입선출 확인)","방충·방서 상태 점검(포충기 등)"] },
+    monthly: {
+      "1주차": ["그리스트랩 청소","가스 설비 안전 점검"],
+      "2주차": ["냉장·냉동고 성에·도어패킹 점검","소화기·화재감지기 점검"],
+      "3주차": ["주방 대청소(천장·벽·조명)","조리기구·집기 상태 전수 점검"],
+      "4주차": ["직원 위생교육·건강진단서 갱신 확인","방역(해충 방제) 실시 확인"]
+    }
+  }
+};
+
+/* ═══ 데이터 ═══ */
+const BLANK = {
+  settings:{ store:"강서오뎅", nightPay:true, weeklyPay:true, otPay:false, payday:10, adminPin:"1234" },
+  staff:[], attend:[], stock:[], moves:[], recipes:[], payAdj:{},
+  chkItems:null, checks:{}
+};
+let data = JSON.parse(JSON.stringify(BLANK));
+data.chkItems = JSON.parse(JSON.stringify(DEFAULT_CHK));
+
+const FIELDS = ["settings","staff","attend","stock","moves","recipes","payAdj","chkItems","checks"];
+
+let CLIENT_ID = lsGet("sm-client");
+if(!CLIENT_ID){ CLIENT_ID = "c"+Math.random().toString(36).slice(2,9); lsSet("sm-client", CLIENT_ID); }
+
+/* 이 기기의 사용자 / 권한 */
+let meId   = lsGet("sm-me") || "";
+let myRole = lsGet("sm-role") || "admin";   // admin | staff
+
+/* 화면 상태 */
+let tab = "home";
+let recipeCat = "전체", recipeQ = "";
+let workSub = "punch";                                     // punch | pay
+let workDate = new Date();
+let payMonth = monthKey(new Date());
+let stockCat = "전체", stockQ = "", stockSub = "list";      // list | log
+let chkArea = "hall", chkPeriod = "daily", chkDate = new Date();
+
+/* ═══ 유틸 ═══ */
+function jsq(s){
+  return esc(String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"));
+}
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function pad(n){ return String(n).padStart(2,"0"); }
+function dateKey(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function monthKey(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1); }
+function today(){ return dateKey(new Date()); }
+function nowHM(){ const d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); }
+const DAYS = ["일","월","화","수","목","금","토"];
+function dLabel(k){ const p=k.split("-"); const d=new Date(+p[0],+p[1]-1,+p[2]);
+  return (+p[1])+"월 "+(+p[2])+"일 ("+DAYS[d.getDay()]+")"; }
+function won(n){ return Math.round(n||0).toLocaleString("ko-KR")+"원"; }
+function num(n,d){ if(n===null||n===undefined||n==="") return d===undefined?0:d;
+  const v=parseFloat(n); return isNaN(v)?(d===undefined?0:d):v; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function hm2min(t){ if(!t||t.indexOf(":")<0) return null; const p=t.split(":");
+  return (+p[0])*60 + (+p[1]); }
+function min2hm(m){ m=((m%1440)+1440)%1440; return pad(Math.floor(m/60))+":"+pad(m%60); }
+function durTxt(min){ const h=Math.floor(min/60), m=Math.round(min%60);
+  return (h?h+"시간 ":"")+(m?m+"분":(h?"":"0분")); }
+function weekKeyOf(k){
+  const p=k.split("-"); const t=new Date(+p[0],+p[1]-1,+p[2]);
+  const day=(t.getDay()+6)%7; t.setDate(t.getDate()-day+3);
+  const ft=new Date(t.getFullYear(),0,4); const fd=(ft.getDay()+6)%7;
+  ft.setDate(ft.getDate()-fd+3);
+  const wk=1+Math.round((t-ft)/(7*24*3600*1000));
+  return t.getFullYear()+"-W"+pad(wk);
+}
+function toast(msg){
+  const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("on");
+  clearTimeout(el._t); el._t=setTimeout(function(){ el.classList.remove("on"); },2000);
+}
+function copyTxt(t){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(function(){ toast("복사했어요 ✓"); },function(){ fallbackCopy(t); });
+  } else fallbackCopy(t);
+}
+function fallbackCopy(t){
+  const ta=document.createElement("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); toast("복사했어요 ✓"); }catch(e){ toast("복사 실패"); }
+  document.body.removeChild(ta);
+}
+function meName(){ const s=staffById(meId); return s?s.name:""; }
+function staffById(id){ for(let i=0;i<data.staff.length;i++) if(data.staff[i].id===id) return data.staff[i]; return null; }
+function stockById(id){ for(let i=0;i<data.stock.length;i++) if(data.stock[i].id===id) return data.stock[i]; return null; }
+function recipeById(id){ for(let i=0;i<data.recipes.length;i++) if(data.recipes[i].id===id) return data.recipes[i]; return null; }
+function isAdmin(){ return myRole==="admin"; }
+/* 레시피 열람 권한: 사장(관리자) + 주방 담당 직원만 */
+function canRecipe(){
+  if(isAdmin()) return true;
+  const s = staffById(meId);
+  return !!(s && (s.dept==="kitchen" || s.dept==="both"));
+}
+function deptLabel(d){ return {hall:"홀",kitchen:"주방",both:"홀+주방"}[d||"hall"]; }
+
+/* ═══ 저장 / 동기화 ═══ */
+let fbDoc=null, pushTimer=null, applyingRemote=false, pendingRemote=null, fbReady=false, unsub=null;
+
+/* 팀 코드 (기기별 저장) */
+function loadTeam(){ TEAM_ID = lsGet("sm-team") || ""; }
+function normTeam(v){
+  return String(v||"").trim().toLowerCase().replace(/[^a-z0-9\-]/g,"").slice(0,40);
+}
+function newTeamCode(){
+  const a="abcdefghijkmnpqrstuvwxyz23456789";
+  let s=""; for(let i=0;i<10;i++) s+=a[Math.floor(Math.random()*a.length)];
+  return "store-"+s;
+}
+function setTeam(code){
+  const c = normTeam(code);
+  if(c.length < 6) { toast("코드는 영문·숫자 6자 이상이에요"); return false; }
+  TEAM_ID = c; lsSet("sm-team", c);
+  initFirebase(); render();
+  return true;
+}
+
+function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(data)); }catch(e){} }
+function loadLocal(){
+  try{
+    const raw=localStorage.getItem(LS_KEY); if(!raw) return;
+    const d=JSON.parse(raw);
+    FIELDS.forEach(function(f){ if(d[f]!==undefined && d[f]!==null) data[f]=d[f]; });
+    for(const k in BLANK.settings) if(data.settings[k]===undefined) data.settings[k]=BLANK.settings[k];
+  }catch(e){}
+}
+function save(){ saveLocal(); pushRemote(); }
+
+function pushRemote(){
+  if(!fbDoc || applyingRemote) return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(function(){
+    const payload={ _client:CLIENT_ID, _updatedAt:Date.now() };
+    FIELDS.forEach(function(f){ payload[f]=JSON.stringify(data[f]); });
+    fbDoc.set(payload)
+      .then(function(){ setSync("ok"); })
+      .catch(function(){ setSync("bad","동기화 실패 — 인터넷 확인"); });
+  },600);
+}
+function initFirebase(){
+  if(!window.firebase){ setSync("bad","오프라인 — 이 기기에만 저장돼요"); return; }
+  if(!TEAM_ID){ fbDoc=null; setSync("bad","팀 코드 미설정 — 이 기기에만 저장돼요"); return; }
+  try{
+    if(!fbReady){ firebase.initializeApp(FIREBASE_CONFIG); fbReady=true; }
+    if(unsub){ try{ unsub(); }catch(e){} unsub=null; }
+    fbDoc=firebase.firestore().collection(COLLECTION).doc(TEAM_ID);
+    unsub=fbDoc.onSnapshot(function(snap){
+      if(!snap.exists){ pushRemote(); return; }
+      const d=snap.data();
+      if(d._client===CLIENT_ID) return;
+      applyRemote(d);
+    }, function(err){ setSync("bad","동기화 오류: "+err.code); });
+    setSync("ok");
+  }catch(e){ setSync("bad","Firebase 초기화 실패"); }
+}
+function applyRemote(d){
+  const ae=document.activeElement;
+  if(ae && (ae.tagName==="INPUT"||ae.tagName==="TEXTAREA")){
+    pendingRemote=d;
+    setTimeout(function(){ if(pendingRemote){ const p=pendingRemote; pendingRemote=null; applyRemote(p); } },2500);
+    return;
+  }
+  applyingRemote=true;
+  FIELDS.forEach(function(f){ try{ if(d[f]) data[f]=JSON.parse(d[f]); }catch(e){} });
+  saveLocal(); render(); applyingRemote=false;
+  setSync("ok","다른 기기의 변경을 받았어요 🔄");
+}
+let syncState="bad", syncMsg="연결 중…";
+function setSync(state,msg){
+  syncState=state; syncMsg=msg||""; paintSync();
+  clearTimeout(setSync._t);
+  if(state==="ok" && msg) setSync._t=setTimeout(function(){ syncMsg=""; paintSync(); },4000);
+}
+function paintSync(){
+  const state=syncState, msg=syncMsg;
+  const dot=document.getElementById("syncDot"), txt=document.getElementById("syncTxt");
+  if(state==="ok"){ dot.className="dot"; txt.textContent=msg||("실시간 공유 중 ✓ · "+(meName()||"이름 미설정")+(isAdmin()?" (관리자)":" (직원)")); }
+  else { dot.className="dot bad"; txt.textContent=msg||"오류"; }
+}
+</script>
+<script>
+/* ═══════════════ 급여 계산 엔진 ═══════════════ */
+const NIGHT_S = 22*60, NIGHT_E = 30*60;   // 22:00 ~ 익일 06:00
+
+/* 한 기록의 총 근무분 / 야간분 / 연장분 */
+function recCalc(r){
+  const i = hm2min(r.in), o = hm2min(r.out);
+  if(i===null || o===null) return { total:0, night:0, ot:0, span:0 };
+  let end = o; if(end <= i) end += 1440;
+  const span = end - i;
+  let total = span - num(r.brk);
+  if(total < 0) total = 0;
+  let night = 0;
+  for(let k=-1;k<=2;k++){
+    const s = NIGHT_S + 1440*k, e = NIGHT_E + 1440*k;
+    night += Math.max(0, Math.min(end,e) - Math.max(i,s));
+  }
+  if(night > total) night = total;
+  const ot = Math.max(0, total - 8*60);
+  return { total:total, night:night, ot:ot, span:span };
+}
+function recMin(r){ return recCalc(r).total; }
+
+function adjKey(m,sid){ return m+"|"+sid; }
+function getAdj(m,sid){
+  const a = data.payAdj[adjKey(m,sid)];
+  return a ? a : { bonus:0, bonusMemo:"", cut:0, cutMemo:"", paid:false };
+}
+function setAdj(m,sid,patch){
+  const cur = getAdj(m,sid);
+  for(const k in patch) cur[k]=patch[k];
+  data.payAdj[adjKey(m,sid)] = cur; save();
+}
+
+/* 한 직원의 월 급여 계산 */
+function payroll(staff, m){
+  const recs = data.attend.filter(function(r){
+    return r.staffId===staff.id && r.date && r.date.slice(0,7)===m && r.out;
+  });
+  let total=0, night=0, ot=0, days={};
+  recs.forEach(function(r){
+    const c = recCalc(r);
+    total += c.total; night += c.night; ot += c.ot; days[r.date]=1;
+  });
+  const wage = num(staff.wage);
+  const S = data.settings;
+  const R = { recs:recs.length, days:Object.keys(days).length,
+              totalMin:total, nightMin:night, otMin:ot,
+              base:0, nightPay:0, otPay:0, weekPay:0, weekHours:0,
+              gross:0, ded:[], dedSum:0, net:0, type:staff.payType||"hourly" };
+
+  if(R.type === "monthly"){
+    R.base = num(staff.monthly);
+  } else {
+    R.base = (total/60) * wage;
+    if(S.nightPay && staff.nightPay!==false) R.nightPay = (night/60) * wage * 0.5;
+    if(S.otPay) R.otPay = (ot/60) * wage * 0.5;
+    if(S.weeklyPay && staff.weeklyPay!==false){
+      const wk = {};
+      recs.forEach(function(r){
+        const k = weekKeyOf(r.date);
+        wk[k] = (wk[k]||0) + recCalc(r).total;
+      });
+      for(const k in wk){
+        const h = wk[k]/60;
+        if(h >= 15){
+          const wh = Math.min(h/40*8, 8);
+          R.weekHours += wh; R.weekPay += wh * wage;
+        }
+      }
+    }
+  }
+  const adj = getAdj(m, staff.id);
+  R.bonus = num(adj.bonus); R.cut = num(adj.cut); R.paid = !!adj.paid;
+  R.gross = R.base + R.nightPay + R.otPay + R.weekPay + R.bonus;
+
+  const mode = staff.deduct || "none";
+  if(mode === "33"){
+    R.ded.push({n:"사업소득세 3.3%", v: R.gross*0.033});
+  } else if(mode === "four"){
+    const health = R.gross*0.03545;
+    R.ded.push({n:"국민연금 4.5%",  v: R.gross*0.045});
+    R.ded.push({n:"건강보험 3.545%", v: health});
+    R.ded.push({n:"장기요양 12.95%", v: health*0.1295});
+    R.ded.push({n:"고용보험 0.9%",   v: R.gross*0.009});
+  }
+  if(R.cut > 0) R.ded.push({n: adj.cutMemo || "기타 공제", v: R.cut});
+  R.ded.forEach(function(d){ R.dedSum += d.v; });
+  R.net = R.gross - R.dedSum;
+  return R;
+}
+function monthLabel(m){ const p=m.split("-"); return (+p[0])+"년 "+(+p[1])+"월"; }
+function shiftMonth(m, d){
+  const p=m.split("-"); const dt=new Date(+p[0], +p[1]-1+d, 1); return monthKey(dt);
+}
+
+/* ═══════════════ 출퇴근 로직 ═══════════════ */
+function openRec(staffId){
+  for(let i=data.attend.length-1;i>=0;i--){
+    const r=data.attend[i];
+    if(r.staffId===staffId && !r.out) return r;
+  }
+  return null;
+}
+function askPin(staff, cb){
+  if(isAdmin() || !staff.pin){ cb(); return; }
+  const v = prompt(staff.name+" 님의 4자리 핀번호를 입력하세요");
+  if(v===null) return;
+  if(String(v).trim() !== String(staff.pin)){ toast("핀번호가 틀려요 ✕"); return; }
+  cb();
+}
+function punchIn(staffId){
+  const s = staffById(staffId); if(!s) return;
+  if(openRec(staffId)){ toast("이미 출근 중이에요"); return; }
+  askPin(s, function(){
+    data.attend.push({ id:uid(), staffId:staffId, date:today(), in:nowHM(), out:"",
+                       brk:0, memo:"", by:meName()||s.name });
+    save(); render(); toast(s.name+" 출근 ✓ "+nowHM());
+  });
+}
+function punchOut(staffId){
+  const s = staffById(staffId); if(!s) return;
+  const r = openRec(staffId);
+  if(!r){ toast("출근 기록이 없어요"); return; }
+  askPin(s, function(){
+    r.out = nowHM();
+    const c = recCalc(r);
+    save(); render(); toast(s.name+" 퇴근 ✓ 오늘 "+durTxt(c.total));
+  });
+}
+
+/* ═══════════════ 라우터 ═══════════════ */
+function go(t){ tab=t; window.scrollTo(0,0); render(); }
+function render(){
+  const nv = document.getElementById("nav").querySelectorAll("button");
+  if(tab==="recipe" && !canRecipe()) tab="home";
+  for(let i=0;i<nv.length;i++){
+    nv[i].classList.toggle("on", nv[i].dataset.tab===tab);
+    if(nv[i].dataset.tab==="recipe") nv[i].style.display = canRecipe()? "" : "none";
+  }
+  document.getElementById("hdTitle").textContent = "🍢 "+(data.settings.store||"가게관리");
+  document.getElementById("meBtn").textContent = "👤 "+(meName()||"이름설정");
+  const v = document.getElementById("view");
+  if(tab==="home")   v.innerHTML = viewHome();
+  if(tab==="recipe") v.innerHTML = viewRecipe();
+  if(tab==="work")   v.innerHTML = viewWork();
+  if(tab==="stock")  v.innerHTML = viewStock();
+  if(tab==="check")  v.innerHTML = viewCheck();
+  markKorean(v);
+  paintSync();
+}
+
+/* ═══════════════ 홈 ═══════════════ */
+function chkProgress(area, period, dkey){
+  const groups = data.chkItems[area][period] || {};
+  const map = data.checks[area+"|"+period+"|"+dkey] || {};
+  let tot=0, done=0;
+  for(const g in groups) groups[g].forEach(function(it){
+    tot++; if(map[g+"::"+it]) done++;
+  });
+  return { tot:tot, done:done, pct: tot? Math.round(done/tot*100):0 };
+}
+function viewHome(){
+  const t = today();
+  const working = data.staff.filter(function(s){ return !!openRec(s.id); });
+  const low = data.stock.filter(function(i){ return num(i.min)>0 && num(i.stock) <= num(i.min); });
+  const hall = chkProgress("hall","daily",t), kit = chkProgress("kitchen","daily",t);
+  const m = monthKey(new Date());
+  let html = "";
+
+  /* 내 출퇴근 */
+  const me = staffById(meId);
+  html += '<div class="card">';
+  if(me){
+    const r = openRec(me.id);
+    const mine = data.attend.filter(function(x){ return x.staffId===me.id && x.date===t; });
+    let todayMin = 0; mine.forEach(function(x){ if(x.out) todayMin += recMin(x); });
+    html += '<div class="row" style="margin-bottom:11px"><div class="sp">'
+         +  '<div style="font-size:16px;font-weight:800">'+esc(me.name)+' 님</div>'
+         +  '<div class="muted">'+dLabel(t)+(r? ' · <b style="color:var(--ok)">'+esc(r.in)+' 출근중</b>':
+             (todayMin? ' · 오늘 '+durTxt(todayMin)+' 근무':' · 아직 출근 전'))+'</div></div>'
+         +  (r? '<span class="bdg ok">근무중</span>':'<span class="bdg">대기</span>')+'</div>';
+    html += '<div class="big-punch">'
+         +  '<button class="punch-in" '+(r?'style="opacity:.4"':'')+' onclick="punchIn(\''+me.id+'\')">🟢 출근</button>'
+         +  '<button class="punch-out" '+(!r?'style="opacity:.4"':'')+' onclick="punchOut(\''+me.id+'\')">🔴 퇴근</button></div>';
+  } else {
+    html += '<div class="row"><div class="sp"><div class="li-t">먼저 내 이름을 설정하세요</div>'
+         +  '<div class="li-s">출퇴근·체크리스트 기록에 이름이 남아요</div></div>'
+         +  '<button class="btn sm" onclick="openMe()">설정</button></div>';
+  }
+  html += '</div>';
+
+  /* 요약 타일 */
+  html += '<div class="tiles" style="margin-bottom:12px">'
+       +  '<div class="tile" onclick="go(\'work\')"><b>'+working.length+'</b><span>근무 중</span></div>'
+       +  '<div class="tile" onclick="go(\'check\')"><b>'+Math.round((hall.pct+kit.pct)/2)+'%</b><span>오늘 체크</span></div>'
+       +  '<div class="tile" onclick="go(\'stock\')"><b style="'+(low.length?'color:var(--bad)':'')+'">'+low.length+'</b><span>발주 필요</span></div>'
+       +  (canRecipe()
+            ? '<div class="tile" onclick="go(\'recipe\')"><b>'+data.recipes.length+'</b><span>레시피</span></div>'
+            : '<div class="tile" onclick="go(\'work\')"><b>'+(me? payroll(me,m).days : 0)+'</b><span>이번달 근무일</span></div>')
+       +  '</div>';
+
+  /* 근무 중 */
+  if(working.length){
+    html += '<div class="card"><div class="sec-t">🟢 지금 근무 중</div>';
+    working.forEach(function(s){
+      const r = openRec(s.id);
+      const el = Math.max(0, Math.floor((Date.now() - new Date(r.date+"T"+r.in+":00").getTime())/60000));
+      html += '<div class="li"><div class="sp"><div class="li-t">'+esc(s.name)+'</div>'
+           +  '<div class="li-s">'+esc(r.in)+' 출근 · '+durTxt(el)+' 경과</div></div>'
+           +  '<button class="btn xs bad" onclick="punchOut(\''+s.id+'\')">퇴근</button></div>';
+    });
+    html += '</div>';
+  }
+
+  /* 오늘 체크리스트 */
+  html += '<div class="card"><div class="sec-t">✅ 오늘 체크리스트</div>';
+  [["hall","🏠 홀",hall],["kitchen","🍳 주방",kit]].forEach(function(x){
+    html += '<div style="margin-bottom:10px" onclick="chkArea=\''+x[0]+'\';chkPeriod=\'daily\';go(\'check\')">'
+         +  '<div class="row" style="margin-bottom:5px"><div class="sp li-t">'+x[1]+'</div>'
+         +  '<span class="muted">'+x[2].done+' / '+x[2].tot+'</span></div>'
+         +  '<div class="pbar"><i style="width:'+x[2].pct+'%"></i></div></div>';
+  });
+  html += '</div>';
+
+  /* 발주 필요 */
+  if(low.length){
+    html += '<div class="card"><div class="sec-t">📦 발주가 필요해요</div>';
+    low.slice(0,6).forEach(function(i){
+      html += '<div class="li"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
+           +  '<div class="li-s">현재 '+num(i.stock)+esc(i.unit||"")+' · 최소 '+num(i.min)+esc(i.unit||"")+'</div></div>'
+           +  '<span class="bdg bad">부족</span></div>';
+    });
+    if(low.length>6) html += '<div class="muted" style="padding-top:8px">외 '+(low.length-6)+'개</div>';
+    html += '<button class="btn g full sm" style="margin-top:10px" onclick="orderSheet()">📋 발주서 복사</button></div>';
+  }
+
+  /* 이번달 요약 */
+  if(isAdmin()){
+    let sum=0, minsum=0;
+    data.staff.forEach(function(s){ const p=payroll(s,m); sum+=p.net; minsum+=p.totalMin; });
+    html += '<div class="card"><div class="sec-t">💰 이번달 ('+monthLabel(m)+')</div>'
+         +  '<div class="kv"><span>총 근무시간</span><b>'+durTxt(minsum)+'</b></div>'
+         +  '<div class="kv"><span>예상 인건비 (실지급 합계)</span><b>'+won(sum)+'</b></div>'
+         +  '<button class="btn g full sm" style="margin-top:11px" onclick="workSub=\'pay\';payMonth=\''+m+'\';go(\'work\')">급여 자세히 보기</button></div>';
+  } else if(me){
+    const p = payroll(me, m);
+    html += '<div class="card"><div class="sec-t">💰 이번달 내 급여 (예상)</div>'
+         +  '<div class="kv"><span>근무</span><b>'+p.days+'일 · '+durTxt(p.totalMin)+'</b></div>'
+         +  '<div class="kv big"><span>실지급 예상</span><b>'+won(p.net)+'</b></div>'
+         +  '<div class="muted" style="margin-top:6px">※ 확정 금액은 사장님 정산 기준입니다</div></div>';
+  }
+  return html;
+}
+</script>
+<script>
+/* ═══════════════ 근태 · 급여 ═══════════════ */
+function viewWork(){
+  let html = '<div class="seg">'
+    + '<button class="'+(workSub==="punch"?"on":"")+'" onclick="workSub=\'punch\';render()">⏱️ 근무기록</button>'
+    + (isAdmin()? '<button class="'+(workSub==="pay"?"on":"")+'" onclick="workSub=\'pay\';render()">💰 급여계산</button>':'')
+    + '<button class="'+(workSub==="staff"?"on":"")+'" onclick="workSub=\'staff\';render()">👥 직원</button></div>';
+  if(workSub==="pay" && isAdmin()) return html + viewPay();
+  if(workSub==="staff") return html + viewStaff();
+  return html + viewPunch();
+}
+
+function viewPunch(){
+  const dk = dateKey(workDate);
+  let html = '<div class="card tight"><div class="row">'
+    + '<button class="btn g sm" onclick="moveWorkDate(-1)">‹</button>'
+    + '<div class="sp" style="text-align:center;font-weight:800">'+dLabel(dk)+(dk===today()?' · 오늘':'')+'</div>'
+    + '<button class="btn g sm" onclick="moveWorkDate(1)">›</button></div></div>';
+
+  if(!data.staff.length){
+    return html + '<div class="card"><div class="empty">등록된 직원이 없어요.<br>👥 직원 탭에서 먼저 등록해 주세요.</div>'
+      + '<button class="btn full" onclick="workSub=\'staff\';render()">직원 등록하러 가기</button></div>';
+  }
+
+  /* 직원별 카드 */
+  html += '<div class="card"><div class="sec-t">🟢 출퇴근 찍기</div>';
+  data.staff.filter(function(s){ return s.active!==false; }).forEach(function(s){
+    const r = openRec(s.id);
+    const recs = data.attend.filter(function(x){ return x.staffId===s.id && x.date===dk; });
+    let mm=0; recs.forEach(function(x){ if(x.out) mm+=recMin(x); });
+    html += '<div class="li"><div class="sp"><div class="li-t">'+esc(s.name)
+      + (r?' <span class="bdg ok">근무중</span>':'')+'</div>'
+      + '<div class="li-s">'+(recs.length
+          ? recs.map(function(x){ return esc(x.in)+"~"+(x.out?esc(x.out):"…"); }).join(", ")+(mm?" · "+durTxt(mm):"")
+          : "기록 없음")+'</div></div>'
+      + '<button class="btn xs '+(r?'bad':'ok')+'" onclick="'+(r?'punchOut':'punchIn')+'(\''+s.id+'\')">'+(r?'퇴근':'출근')+'</button>'
+      + '</div>';
+  });
+  html += '</div>';
+
+  /* 그날 기록 목록 */
+  const recs = data.attend.filter(function(r){ return r.date===dk; })
+                          .sort(function(a,b){ return (a.in||"").localeCompare(b.in||""); });
+  html += '<div class="card"><div class="row" style="margin-bottom:6px"><div class="sec-t sp" style="margin:0">📋 이 날 기록</div>'
+    + (isAdmin()? '<button class="btn xs g" onclick="editRec(null,\''+dk+'\')">+ 직접 추가</button>':'')+'</div>';
+  if(!recs.length){ html += '<div class="empty">기록이 없어요</div>'; }
+  else recs.forEach(function(r){
+    const s = staffById(r.staffId); const c = recCalc(r);
+    html += '<div class="li"><div class="sp"><div class="li-t">'+esc(s?s.name:"(삭제된 직원)")+'</div>'
+      + '<div class="li-s">'+esc(r.in)+' ~ '+(r.out?esc(r.out):'<span style="color:var(--ok)">근무중</span>')
+      + (num(r.brk)?' · 휴게 '+num(r.brk)+'분':'')
+      + (r.out?' · <b>'+durTxt(c.total)+'</b>':'')
+      + (c.night?' · <span class="bdg blue" style="padding:1px 6px">야간 '+durTxt(c.night)+'</span>':'')
+      + (r.memo?'<br>📝 '+esc(r.memo):'')+'</div></div>'
+      + (isAdmin()? '<button class="btn xs g" onclick="editRec(\''+r.id+'\')">수정</button>':'')+'</div>';
+  });
+  if(recs.length){
+    let sum=0; recs.forEach(function(r){ if(r.out) sum+=recMin(r); });
+    html += '<div class="kv" style="margin-top:8px;border-top:1px solid var(--line);padding-top:10px">'
+      + '<span>합계</span><b>'+durTxt(sum)+'</b></div>';
+  }
+  html += '</div>';
+  return html;
+}
+function moveWorkDate(d){ workDate.setDate(workDate.getDate()+d); render(); }
+
+/* 기록 추가/수정 */
+function editRec(id, dk){
+  const r = id ? data.attend.filter(function(x){ return x.id===id; })[0] : null;
+  const opts = data.staff.map(function(s){
+    return '<option value="'+s.id+'" '+(r&&r.staffId===s.id?'selected':'')+'>'+esc(s.name)+'</option>'; }).join("");
+  const b = '<div class="f"><label>직원</label><select id="rSt">'+opts+'</select></div>'
+    + '<div class="f"><label>날짜</label><input type="date" id="rDt" value="'+(r?r.date:(dk||today()))+'"></div>'
+    + '<div class="grid3"><div class="f"><label>출근</label><input type="time" id="rIn" value="'+(r?r.in:"")+'"></div>'
+    + '<div class="f"><label>퇴근</label><input type="time" id="rOut" value="'+(r&&r.out?r.out:"")+'"></div>'
+    + '<div class="f"><label>휴게(분)</label><input type="number" id="rBrk" value="'+(r?num(r.brk):0)+'"></div></div>'
+    + '<div class="f"><label>메모</label><input id="rMemo" value="'+(r?esc(r.memo):"")+'" placeholder="지각 / 연장 사유 등"></div>'
+    + '<div class="muted" style="margin-bottom:12px">※ 퇴근이 출근보다 이르면 다음날로 자동 계산돼요 (야간 영업)</div>'
+    + '<button class="btn full" onclick="saveRec(\''+(id||"")+'\')">저장</button>'
+    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delRec(\''+id+'\')">삭제</button>':'');
+  sheet(id?"근무기록 수정":"근무기록 추가", b);
+}
+function saveRec(id){
+  const sid=document.getElementById("rSt").value, dt=document.getElementById("rDt").value;
+  const i=document.getElementById("rIn").value, o=document.getElementById("rOut").value;
+  if(!sid||!dt||!i){ toast("직원·날짜·출근시간은 필수예요"); return; }
+  const brk=num(document.getElementById("rBrk").value), memo=document.getElementById("rMemo").value;
+  let r = id ? data.attend.filter(function(x){ return x.id===id; })[0] : null;
+  if(!r){ r={id:uid()}; data.attend.push(r); }
+  r.staffId=sid; r.date=dt; r.in=i; r.out=o; r.brk=brk; r.memo=memo; r.by=meName();
+  save(); closeSheet(); render(); toast("저장했어요 ✓");
+}
+function delRec(id){
+  if(!confirm("이 근무기록을 삭제할까요?")) return;
+  data.attend = data.attend.filter(function(x){ return x.id!==id; });
+  save(); closeSheet(); render(); toast("삭제했어요");
+}
+
+/* ═══ 급여 ═══ */
+function viewPay(){
+  const m = payMonth;
+  let html = '<div class="card tight"><div class="row">'
+    + '<button class="btn g sm" onclick="payMonth=shiftMonth(payMonth,-1);render()">‹</button>'
+    + '<div class="sp" style="text-align:center;font-weight:800">'+monthLabel(m)+'</div>'
+    + '<button class="btn g sm" onclick="payMonth=shiftMonth(payMonth,1);render()">›</button></div></div>';
+
+  const list = data.staff.filter(function(s){ return s.active!==false; });
+  if(!list.length) return html+'<div class="card"><div class="empty">직원을 먼저 등록해 주세요</div></div>';
+
+  let gross=0, net=0, mins=0;
+  html += '<div class="card"><div class="sec-t">👥 직원별 급여</div>';
+  list.forEach(function(s){
+    const p = payroll(s, m);
+    gross += p.gross; net += p.net; mins += p.totalMin;
+    html += '<div class="li" onclick="paySheet(\''+s.id+'\')"><div class="sp">'
+      + '<div class="li-t">'+esc(s.name)+' <span class="bdg '+(p.type==="monthly"?"blue":"br")+'">'
+      + (p.type==="monthly"?"월급":"시급 "+won(num(s.wage)))+'</span>'
+      + (p.paid?' <span class="bdg ok">지급완료</span>':'')+'</div>'
+      + '<div class="li-s">'+p.days+'일 · '+durTxt(p.totalMin)
+      + (p.nightMin?' (야간 '+durTxt(p.nightMin)+')':'')+'</div></div>'
+      + '<div style="text-align:right"><div style="font-weight:800">'+won(p.net)+'</div>'
+      + '<div class="li-s">세전 '+won(p.gross)+'</div></div></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="card"><div class="sec-t">📊 '+monthLabel(m)+' 합계</div>'
+    + '<div class="kv"><span>총 근무시간</span><b>'+durTxt(mins)+'</b></div>'
+    + '<div class="kv"><span>세전 합계</span><b>'+won(gross)+'</b></div>'
+    + '<div class="kv big"><span>실지급 합계</span><b>'+won(net)+'</b></div>'
+    + '<div class="muted" style="margin-top:8px">급여일: 매월 '+num(data.settings.payday,10)+'일</div>'
+    + '<div class="grid2" style="margin-top:11px">'
+    + '<button class="btn g sm" onclick="copyPayAll()">📋 전체 요약 복사</button>'
+    + '<button class="btn g sm" onclick="openSettings()">⚙️ 수당 설정</button></div></div>';
+
+  const S=data.settings;
+  html += '<div class="card tight"><div class="muted">적용 중: '
+    + (S.nightPay?'야간수당(22~06시 0.5배) ':'')
+    + (S.weeklyPay?'· 주휴수당(주15h+) ':'')
+    + (S.otPay?'· 연장수당(1일 8h 초과) ':'')
+    + (!S.nightPay&&!S.weeklyPay&&!S.otPay?'기본급만':'')
+    + '<br>※ 세금·4대보험은 근사 계산이며 실제 신고 금액과 다를 수 있어요.</div></div>';
+  return html;
+}
+
+function paySheet(sid){
+  const s = staffById(sid); if(!s) return;
+  const m = payMonth, p = payroll(s, m), adj = getAdj(m,sid);
+  let b = '<div class="card"><div class="sec-t">'+esc(s.name)+' · '+monthLabel(m)+'</div>'
+    + '<div class="kv"><span>근무일수</span><b>'+p.days+'일</b></div>'
+    + '<div class="kv"><span>총 근무시간</span><b>'+durTxt(p.totalMin)+'</b></div>'
+    + (p.nightMin?'<div class="kv"><span>야간 근무 (22~06시)</span><b>'+durTxt(p.nightMin)+'</b></div>':'')
+    + (p.otMin&&data.settings.otPay?'<div class="kv"><span>연장 근무</span><b>'+durTxt(p.otMin)+'</b></div>':'')
+    + '</div>';
+
+  b += '<div class="card"><div class="sec-t">💵 지급 내역</div>'
+    + '<div class="kv"><span>'+(p.type==="monthly"?"기본급 (월급)":"기본급 ("+durTxt(p.totalMin)+" × "+won(num(s.wage))+")")+'</span><b>'+won(p.base)+'</b></div>'
+    + (p.nightPay?'<div class="kv"><span>야간수당 (0.5배)</span><b>'+won(p.nightPay)+'</b></div>':'')
+    + (p.otPay?'<div class="kv"><span>연장수당 (0.5배)</span><b>'+won(p.otPay)+'</b></div>':'')
+    + (p.weekPay?'<div class="kv"><span>주휴수당 ('+p.weekHours.toFixed(1)+'시간)</span><b>'+won(p.weekPay)+'</b></div>':'')
+    + (p.bonus?'<div class="kv"><span>'+esc(adj.bonusMemo||"추가 수당")+'</span><b>'+won(p.bonus)+'</b></div>':'')
+    + '<div class="kv big"><span>세전 합계</span><b>'+won(p.gross)+'</b></div></div>';
+
+  b += '<div class="card"><div class="sec-t">➖ 공제</div>';
+  if(!p.ded.length) b += '<div class="muted">공제 없음</div>';
+  p.ded.forEach(function(d){ b += '<div class="kv"><span>'+esc(d.n)+'</span><b>-'+won(d.v)+'</b></div>'; });
+  b += '<div class="kv big"><span>실지급액</span><b>'+won(p.net)+'</b></div></div>';
+
+  b += '<div class="card"><div class="sec-t">✏️ 이번달 조정</div>'
+    + '<div class="grid2"><div class="f"><label>추가 수당</label><input type="number" id="aB" value="'+num(adj.bonus)+'"></div>'
+    + '<div class="f"><label>항목명</label><input id="aBM" value="'+esc(adj.bonusMemo)+'" placeholder="식대/보너스"></div></div>'
+    + '<div class="grid2"><div class="f"><label>기타 공제</label><input type="number" id="aC" value="'+num(adj.cut)+'"></div>'
+    + '<div class="f"><label>항목명</label><input id="aCM" value="'+esc(adj.cutMemo)+'" placeholder="가불/지각"></div></div>'
+    + '<button class="btn full sm" onclick="saveAdj(\''+sid+'\')">조정 저장</button></div>';
+
+  b += '<div class="grid2">'
+    + '<button class="btn '+(p.paid?'g':'ok')+'" onclick="togglePaid(\''+sid+'\')">'+(p.paid?'지급완료 해제':'✓ 지급완료')+'</button>'
+    + '<button class="btn g" onclick="copyPayslip(\''+sid+'\')">📋 명세서 복사</button></div>';
+  sheet("급여 상세", b);
+}
+function saveAdj(sid){
+  setAdj(payMonth, sid, {
+    bonus:num(document.getElementById("aB").value), bonusMemo:document.getElementById("aBM").value,
+    cut:num(document.getElementById("aC").value),   cutMemo:document.getElementById("aCM").value
+  });
+  paySheet(sid); render(); toast("조정 저장 ✓");
+}
+function togglePaid(sid){
+  const a=getAdj(payMonth,sid); setAdj(payMonth,sid,{paid:!a.paid}); paySheet(sid); render();
+}
+function payslipText(s){
+  const m=payMonth, p=payroll(s,m), adj=getAdj(m,s.id);
+  let t = "【"+(data.settings.store||"")+"】 "+monthLabel(m)+" 급여명세서\n";
+  t += "─────────────────\n성명: "+s.name+"\n";
+  t += "근무: "+p.days+"일 / "+durTxt(p.totalMin)+"\n";
+  if(p.nightMin) t += "야간: "+durTxt(p.nightMin)+"\n";
+  t += "─────────────────\n";
+  t += "기본급  "+won(p.base)+"\n";
+  if(p.nightPay) t += "야간수당 "+won(p.nightPay)+"\n";
+  if(p.otPay)    t += "연장수당 "+won(p.otPay)+"\n";
+  if(p.weekPay)  t += "주휴수당 "+won(p.weekPay)+"\n";
+  if(p.bonus)    t += (adj.bonusMemo||"추가수당")+" "+won(p.bonus)+"\n";
+  t += "세전합계 "+won(p.gross)+"\n";
+  if(p.ded.length){ t += "─────────────────\n";
+    p.ded.forEach(function(d){ t += d.n+" -"+won(d.v)+"\n"; }); }
+  t += "─────────────────\n실지급액 "+won(p.net)+"\n";
+  t += "지급일: 매월 "+num(data.settings.payday,10)+"일";
+  return t;
+}
+function copyPayslip(sid){ const s=staffById(sid); if(s) copyTxt(payslipText(s)); }
+function copyPayAll(){
+  let t = "【"+(data.settings.store||"")+"】 "+monthLabel(payMonth)+" 급여 요약\n─────────────────\n";
+  let net=0;
+  data.staff.filter(function(s){return s.active!==false;}).forEach(function(s){
+    const p=payroll(s,payMonth); net+=p.net;
+    t += s.name+"  "+p.days+"일/"+durTxt(p.totalMin)+"  "+won(p.net)+(p.paid?" (지급완료)":"")+"\n";
+  });
+  t += "─────────────────\n실지급 합계 "+won(net);
+  copyTxt(t);
+}
+
+/* ═══ 직원 관리 ═══ */
+function viewStaff(){
+  let html = '<div class="card"><div class="row" style="margin-bottom:6px">'
+    + '<div class="sec-t sp" style="margin:0">👥 직원 목록</div>'
+    + (isAdmin()?'<button class="btn xs" onclick="editStaff(null)">+ 직원 추가</button>':'')+'</div>';
+  if(!data.staff.length) html += '<div class="empty">등록된 직원이 없어요.<br>+ 직원 추가를 눌러 등록하세요.</div>';
+  data.staff.forEach(function(s){
+    const p = payroll(s, monthKey(new Date()));
+    html += '<div class="li"><div class="sp"><div class="li-t">'+esc(s.name)
+      + (s.active===false?' <span class="bdg">퇴사</span>':'')
+      + (s.id===meId?' <span class="bdg br">나</span>':'')+'</div>'
+      + '<div class="li-s"><span class="bdg '+((s.dept==="kitchen"||s.dept==="both")?"blue":"")+'">'+deptLabel(s.dept)+'</span> '
+      + (s.payType==="monthly"? "월급 "+won(num(s.monthly)) : "시급 "+won(num(s.wage)))
+      + ' · '+({none:"공제없음","33":"3.3%",four:"4대보험"}[s.deduct||"none"])
+      + (s.pin?' · 핀 설정됨':' · 핀 없음')
+      + '<br>이번달 '+p.days+'일 / '+durTxt(p.totalMin)+'</div></div>'
+      + (isAdmin()?'<button class="btn xs g" onclick="editStaff(\''+s.id+'\')">수정</button>':'')+'</div>';
+  });
+  html += '</div>';
+  html += '<div class="card tight"><div class="muted">💡 직원 폰에서 이 앱을 열고 <b>👤 나</b>에서 본인 이름을 고르면, '
+    + '홈 화면의 큰 출근/퇴근 버튼으로 직접 찍을 수 있어요. 핀번호를 설정하면 본인만 찍을 수 있습니다.</div></div>';
+  return html;
+}
+function editStaff(id){
+  const s = id? staffById(id) : null;
+  const sel = function(v,cur){ return v===cur? 'selected':''; };
+  const b = '<div class="f"><label>이름</label><input id="sN" value="'+(s?esc(s.name):"")+'" placeholder="홍길동"></div>'
+    + '<div class="grid2">'
+    + '<div class="f"><label>급여 형태</label><select id="sT" onchange="stPayType()">'
+    + '<option value="hourly" '+sel("hourly",s?s.payType:"hourly")+'>시급제</option>'
+    + '<option value="monthly" '+sel("monthly",s?s.payType:"")+'>월급제</option></select></div>'
+    + '<div class="f" id="wrapWage"><label>시급 (원)</label><input type="number" id="sW" value="'+(s?num(s.wage):10320)+'"></div>'
+    + '<div class="f" id="wrapMon" style="display:none"><label>월급 (원)</label><input type="number" id="sM" value="'+(s?num(s.monthly):0)+'"></div>'
+    + '</div>'
+    + '<div class="grid2">'
+    + '<div class="f"><label>공제 방식</label><select id="sD">'
+    + '<option value="none" '+sel("none",s?s.deduct:"none")+'>공제 없음</option>'
+    + '<option value="33" '+sel("33",s?s.deduct:"")+'>3.3% 사업소득</option>'
+    + '<option value="four" '+sel("four",s?s.deduct:"")+'>4대보험</option></select></div>'
+    + '<div class="f"><label>핀번호 (4자리, 선택)</label><input id="sP" inputmode="numeric" maxlength="4" value="'+(s?esc(s.pin):"")+'" placeholder="예: 1234"></div>'
+    + '</div>'
+    + '<div class="grid2">'
+    + '<div class="f"><label>야간수당 적용</label><select id="sNi"><option value="1" '+(s&&s.nightPay===false?"":"selected")+'>적용</option><option value="0" '+(s&&s.nightPay===false?"selected":"")+'>미적용</option></select></div>'
+    + '<div class="f"><label>주휴수당 적용</label><select id="sWk"><option value="1" '+(s&&s.weeklyPay===false?"":"selected")+'>적용</option><option value="0" '+(s&&s.weeklyPay===false?"selected":"")+'>미적용</option></select></div>'
+    + '</div>'
+    + '<div class="f"><label>담당</label><select id="sDept">'
+    + '<option value="hall" '+sel("hall",s?(s.dept||"hall"):"hall")+'>홀</option>'
+    + '<option value="kitchen" '+sel("kitchen",s?s.dept:"")+'>주방</option>'
+    + '<option value="both" '+sel("both",s?s.dept:"")+'>홀+주방</option></select>'
+    + '<div class="muted" style="margin-top:5px">🔒 레시피는 <b>주방·홀+주방 담당과 사장님</b>만 볼 수 있어요. 홀 담당 폰에서는 레시피 탭이 아예 보이지 않습니다.</div></div>'
+    + '<div class="f"><label>메모</label><input id="sMemo" value="'+(s?esc(s.memo):"")+'" placeholder="입사일 / 비고"></div>'
+    + (s? '<div class="f"><label>재직 상태</label><select id="sA"><option value="1" '+(s.active===false?"":"selected")+'>재직</option><option value="0" '+(s.active===false?"selected":"")+'>퇴사</option></select></div>':'')
+    + '<button class="btn full" onclick="saveStaff(\''+(id||"")+'\')">저장</button>'
+    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delStaff(\''+id+'\')">삭제</button>':'');
+  sheet(id?"직원 정보 수정":"직원 추가", b);
+  stPayType();
+}
+function stPayType(){
+  const t=document.getElementById("sT"); if(!t) return;
+  document.getElementById("wrapWage").style.display = t.value==="hourly"?"":"none";
+  document.getElementById("wrapMon").style.display  = t.value==="monthly"?"":"none";
+}
+function saveStaff(id){
+  const n=document.getElementById("sN").value.trim();
+  if(!n){ toast("이름을 입력하세요"); return; }
+  let s = id? staffById(id) : null;
+  if(!s){ s={id:uid()}; data.staff.push(s); }
+  s.name=n;
+  s.payType=document.getElementById("sT").value;
+  s.wage=num(document.getElementById("sW").value);
+  s.monthly=num(document.getElementById("sM").value);
+  s.deduct=document.getElementById("sD").value;
+  s.pin=document.getElementById("sP").value.trim();
+  s.nightPay=document.getElementById("sNi").value==="1";
+  s.weeklyPay=document.getElementById("sWk").value==="1";
+  s.dept=document.getElementById("sDept").value;
+  s.memo=document.getElementById("sMemo").value;
+  const a=document.getElementById("sA"); if(a) s.active = a.value==="1";
+  save(); closeSheet(); render(); toast("저장했어요 ✓");
+}
+function delStaff(id){
+  if(!confirm("직원을 삭제하면 근무기록은 남지만 이름이 사라져요. 삭제할까요?\n(퇴사 처리를 권장합니다)")) return;
+  data.staff = data.staff.filter(function(s){ return s.id!==id; });
+  if(meId===id){ meId=""; lsDel("sm-me"); }
+  save(); closeSheet(); render();
+}
+</script>
+<script>
+/* ═══════════════ 레시피 ═══════════════ */
+function recipeCats(){
+  const set={}; data.recipes.forEach(function(r){ if(r.cat) set[r.cat]=1; });
+  return Object.keys(set);
+}
+function viewRecipe(){
+  const cats = ["전체"].concat(recipeCats());
+  let html = '<div class="row" style="margin-bottom:10px">'
+    + '<input id="rq" class="sp" placeholder="🔍 메뉴·재료 검색" value="'+esc(recipeQ)+'" oninput="recipeQ=this.value;renderRecipeList()">'
+    + '<button class="btn sm" onclick="editRecipe(null)">+ 추가</button></div>';
+  html += '<div class="chips">'+cats.map(function(c){
+      return '<button class="chip '+(recipeCat===c?"on":"")+'" onclick="recipeCat=\''+jsq(c)+'\';render()">'+esc(c)+'</button>';
+    }).join("")+'</div>';
+  if(data.recipes.length){
+    html += '<div class="row" style="margin-bottom:10px">'
+      + '<div class="muted sp">'+(recipeCat==="전체"?"전체":esc(recipeCat))+' 레시피를 한 번에 출력</div>'
+      + '<button class="btn sm blue" onclick="printCurrentList()">🖨️ 레시피북 인쇄</button></div>';
+  }
+  html += '<div id="rlist">'+recipeListHtml()+'</div>';
+  return html;
+}
+function renderRecipeList(){ const el=document.getElementById("rlist"); if(el) el.innerHTML=recipeListHtml(); }
+function filteredRecipes(){
+  const q = recipeQ.trim().toLowerCase();
+  const list = data.recipes.filter(function(r){
+    if(recipeCat!=="전체" && r.cat!==recipeCat) return false;
+    if(!q) return true;
+    if((r.name||"").toLowerCase().indexOf(q)>=0) return true;
+    return (r.ings||[]).some(function(g){ return (g.name||"").toLowerCase().indexOf(q)>=0; });
+  });
+  list.sort(function(a,b){ return (a.name||"").localeCompare(b.name||""); });
+  return list;
+}
+function recipeListHtml(){
+  const list = filteredRecipes();
+  if(!list.length) return '<div class="card"><div class="empty">레시피가 없어요.<br>+ 추가를 눌러 첫 레시피를 만들어 보세요.</div></div>';
+  let h = "";
+  list.forEach(function(r){
+    h += '<div class="card" onclick="showRecipe(\''+r.id+'\')">'
+      + '<div class="row top"><div class="sp"><div style="font-size:16px;font-weight:800">'+esc(r.name)+'</div>'
+      + '<div class="li-s">'+(r.cat?'<span class="bdg br">'+esc(r.cat)+'</span> ':'')
+      + (r.yield?esc(r.yield)+' · ':'')+(r.ings||[]).length+'개 재료 · '+(r.steps||[]).length+'단계</div></div>'
+      + '<span class="bdg">보기 ›</span></div></div>';
+  });
+  return h;
+}
+function showRecipe(id){
+  const r = recipeById(id); if(!r) return;
+  let b = '<div class="card"><div class="row top"><div class="sp">'
+    + '<div style="font-size:18px;font-weight:800">'+esc(r.name)+'</div>'
+    + '<div class="li-s">'+(r.cat?'<span class="bdg br">'+esc(r.cat)+'</span> ':'')+(r.yield?esc(r.yield):'')+'</div></div></div></div>';
+
+  b += '<div class="card"><div class="sec-t">🥕 재료</div>';
+  if(!(r.ings||[]).length) b += '<div class="muted">등록된 재료가 없어요</div>';
+  (r.ings||[]).forEach(function(g){
+    const it = g.sid? stockById(g.sid):null;
+    b += '<div class="li"><div class="sp"><div class="li-t">'+esc(g.name)+'</div>'
+      + (it?'<div class="li-s">창고 재고 '+num(it.stock)+esc(it.unit||"")
+           +(isLow(it)?' <span class="bdg bad">부족</span>':'')+'</div>':'')
+      + '</div><b>'+num(g.qty)+esc(g.unit||"")+'</b></div>';
+  });
+  b += '</div>';
+
+  b += '<div class="card"><div class="sec-t">👨‍🍳 조리 순서</div>';
+  if(!(r.steps||[]).length) b += '<div class="muted">등록된 순서가 없어요</div>';
+  (r.steps||[]).forEach(function(s,i){
+    b += '<div class="step"><div class="step-n">'+(i+1)+'</div><div class="sp">'+esc(s).replace(/\n/g,"<br>")+'</div></div>';
+  });
+  b += '</div>';
+
+  if(r.tip) b += '<div class="card"><div class="sec-t">💡 포인트 · 주의</div><div>'+esc(r.tip).replace(/\n/g,"<br>")+'</div></div>';
+
+  b += '<div class="grid3"><button class="btn g" onclick="copyRecipe(\''+r.id+'\')">📋 복사</button>'
+    + '<button class="btn blue" onclick="printDlg([\''+r.id+'\'])">🖨️ 인쇄</button>'
+    + '<button class="btn" onclick="editRecipe(\''+r.id+'\')">✏️ 수정</button></div>'
+    + '<div class="muted" style="text-align:center;margin-top:10px">'+(r.by?'작성 '+esc(r.by)+' · ':'')+(r.updated||"")+'</div>';
+  sheet("레시피", b);
+}
+function copyRecipe(id){
+  const r=recipeById(id); if(!r) return;
+  let t = "🍳 "+r.name+(r.yield?" ("+r.yield+")":"")+"\n";
+  t += "─────────────────\n[재료]\n";
+  (r.ings||[]).forEach(function(g){ t += "· "+g.name+" "+num(g.qty)+(g.unit||"")+"\n"; });
+  t += "\n[조리 순서]\n";
+  (r.steps||[]).forEach(function(s,i){ t += (i+1)+". "+s+"\n"; });
+  if(r.tip) t += "\n[포인트]\n"+r.tip+"\n";
+  copyTxt(t.trim());
+}
+
+/* ═══ 인쇄 ═══ */
+function printSheetHtml(r){
+  let h = '<div class="p-sheet">'
+    + '<div class="p-store">'+esc(data.settings.store||"")+'</div>'
+    + '<div class="p-h1">'+esc(r.name)+'</div>'
+    + '<div class="p-sub">'+(r.cat?esc(r.cat)+' · ':'')+(r.yield?esc(r.yield):'')+'</div>'
+    + '<hr class="p-rule">';
+  if((r.ings||[]).length){
+    h += '<div class="p-h2">재료</div><table class="p-ings">';
+    r.ings.forEach(function(g){
+      h += '<tr><td>'+esc(g.name)+'</td><td class="q">'+num(g.qty)+esc(g.unit||"")+'</td></tr>';
+    });
+    h += '</table>';
+  }
+  if((r.steps||[]).length){
+    h += '<div class="p-h2">조리 순서</div>';
+    r.steps.forEach(function(s,i){
+      h += '<div class="p-step"><b>'+(i+1)+'</b><div>'+esc(s).replace(/\n/g,"<br>")+'</div></div>';
+    });
+  }
+  if(r.tip) h += '<div class="p-tip"><b>포인트 · 주의</b><br>'+esc(r.tip).replace(/\n/g,"<br>")+'</div>';
+  h += '<div class="p-foot"><span></span><span>'+esc(data.settings.store||"")+' · 출력 '+dLabel(today())+'</span></div>';
+  return h+'</div>';
+}
+function doPrint(list, big){
+  if(!list.length){ toast("인쇄할 레시피가 없어요"); return; }
+  const area = document.getElementById("printArea");
+  area.className = big? "big":"";
+  area.innerHTML = list.map(printSheetHtml).join("");
+  closeSheet();
+  setTimeout(function(){ window.print(); }, 120);
+}
+function printDlg(ids){
+  const list = ids.map(recipeById).filter(function(r){ return r; });
+  if(!list.length){ toast("인쇄할 레시피가 없어요"); return; }
+  let b = '<div class="card tight"><div class="li-t">'+(list.length===1? esc(list[0].name) : "레시피 "+list.length+"개")+'</div>'
+    + '<div class="li-s">A4 기준 레시피당 1장으로 출력돼요</div></div>'
+    + '<div class="f"><label>글씨 크기</label><select id="pBig">'
+    + '<option value="1" selected>크게 (주방 벽 부착용)</option>'
+    + '<option value="0">보통 (A4 한 장에 알차게)</option></select></div>'
+    + '<button class="btn full" onclick="printGo(\''+list.map(function(r){return r.id;}).join(",")+'\')">🖨️ 인쇄</button>'
+    + '<div class="muted" style="margin-top:10px">💡 인쇄창에서 <b>대상을 PDF로 저장</b>으로 바꾸면 파일로 보관하거나 카톡으로 보낼 수 있어요.</div>';
+  sheet("인쇄", b);
+}
+function printGo(idsStr){
+  const bigEl=document.getElementById("pBig");
+  doPrint(idsStr.split(",").map(recipeById).filter(function(r){ return r; }), bigEl? bigEl.value==="1":true);
+}
+function printCurrentList(){ printDlg(filteredRecipes().map(function(r){ return r.id; })); }
+
+/* ═══ 레시피 편집 ═══ */
+let tmpIngs=[], tmpSteps=[], editingRecipe=null;
+function editRecipe(id){
+  const r = id? recipeById(id):null;
+  editingRecipe = id||"";
+  tmpIngs  = r? JSON.parse(JSON.stringify(r.ings||[])) : [];
+  tmpSteps = r? (r.steps||[]).slice() : [];
+  if(!tmpIngs.length) tmpIngs.push({sid:"",name:"",qty:"",unit:""});
+  if(!tmpSteps.length) tmpSteps.push("");
+  const cats = recipeCats();
+  const b = '<div class="f"><label>메뉴 이름</label><input id="cN" value="'+(r?esc(r.name):"")+'" placeholder="예: 매운 오뎅탕"></div>'
+    + '<div class="grid2">'
+    + '<div class="f"><label>분류</label><input id="cC" list="catList" value="'+(r?esc(r.cat):"")+'" placeholder="탕/튀김/사이드">'
+    + '<datalist id="catList">'+cats.map(function(c){return '<option value="'+esc(c)+'">';}).join("")+'</datalist></div>'
+    + '<div class="f"><label>분량</label><input id="cY" value="'+(r?esc(r.yield):"")+'" placeholder="1인분 / 10인분"></div></div>'
+    + '<div class="card"><div class="row" style="margin-bottom:8px"><div class="sec-t sp" style="margin:0">🥕 재료</div>'
+    + '<button class="btn xs g" onclick="addIng()">+ 재료</button></div><div id="ingBox"></div>'
+    + '<div class="muted" style="margin-top:6px">💡 자재에 등록된 재료를 고르면 재고와 연결돼요 (직접 입력도 가능)</div></div>'
+    + '<div class="card"><div class="row" style="margin-bottom:8px"><div class="sec-t sp" style="margin:0">👨‍🍳 조리 순서</div>'
+    + '<button class="btn xs g" onclick="addStep()">+ 단계</button></div><div id="stepBox"></div></div>'
+    + '<div class="f"><label>💡 포인트 · 주의사항</label><textarea id="cT" placeholder="불 세기, 간 맞추는 팁, 보관법 등">'+(r?esc(r.tip):"")+'</textarea></div>'
+    + '<button class="btn full" onclick="saveRecipe()">저장</button>'
+    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delRecipe(\''+id+'\')">삭제</button>':'');
+  sheet(id?"레시피 수정":"새 레시피", b);
+  drawIngs(); drawSteps();
+}
+function stockOptions(sel){
+  let o = '<option value="">직접 입력</option>';
+  data.stock.forEach(function(i){
+    o += '<option value="'+i.id+'" '+(sel===i.id?"selected":"")+'>'+esc(i.name)+(i.unit?' ('+esc(i.unit)+')':'')+'</option>';
+  });
+  return o;
+}
+function drawIngs(){
+  const box=document.getElementById("ingBox"); if(!box) return;
+  box.innerHTML = tmpIngs.map(function(g,i){
+    return '<div style="border:1px solid var(--line);border-radius:11px;padding:9px;margin-bottom:8px">'
+      + '<div class="row" style="margin-bottom:7px">'
+      + '<select class="sp" onchange="pickIng('+i+',this.value)">'+stockOptions(g.sid)+'</select>'
+      + '<button class="btn xs g" style="color:var(--bad)" onclick="delIng('+i+')">✕</button></div>'
+      + '<div class="grid3">'
+      + '<input placeholder="재료명" value="'+esc(g.name)+'" oninput="tmpIngs['+i+'].name=this.value">'
+      + '<input type="number" step="any" placeholder="수량" value="'+(g.qty===""?"":num(g.qty))+'" oninput="tmpIngs['+i+'].qty=this.value">'
+      + '<input placeholder="단위" value="'+esc(g.unit)+'" oninput="tmpIngs['+i+'].unit=this.value">'
+      + '</div></div>';
+  }).join("");
+}
+function pickIng(i,sid){
+  tmpIngs[i].sid = sid;
+  if(sid){ const it=stockById(sid); if(it){ tmpIngs[i].name=it.name; if(!tmpIngs[i].unit) tmpIngs[i].unit=it.unit||""; } }
+  drawIngs();
+}
+function addIng(){ tmpIngs.push({sid:"",name:"",qty:"",unit:""}); drawIngs(); }
+function delIng(i){ tmpIngs.splice(i,1); if(!tmpIngs.length) addIng(); else drawIngs(); }
+function drawSteps(){
+  const box=document.getElementById("stepBox"); if(!box) return;
+  box.innerHTML = tmpSteps.map(function(s,i){
+    return '<div class="row top" style="margin-bottom:7px"><div class="step-n">'+(i+1)+'</div>'
+      + '<textarea class="sp" style="min-height:52px" placeholder="조리 내용" oninput="tmpSteps['+i+']=this.value">'+esc(s)+'</textarea>'
+      + '<button class="btn xs g" style="color:var(--bad)" onclick="delStep('+i+')">✕</button></div>';
+  }).join("");
+}
+function addStep(){ tmpSteps.push(""); drawSteps(); }
+function delStep(i){ tmpSteps.splice(i,1); if(!tmpSteps.length) addStep(); else drawSteps(); }
+function saveRecipe(){
+  const n=document.getElementById("cN").value.trim();
+  if(!n){ toast("메뉴 이름을 입력하세요"); return; }
+  let r = editingRecipe? recipeById(editingRecipe):null;
+  if(!r){ r={id:uid()}; data.recipes.push(r); }
+  r.name=n;
+  r.cat=document.getElementById("cC").value.trim();
+  r.yield=document.getElementById("cY").value.trim();
+  r.tip=document.getElementById("cT").value;
+  r.ings = tmpIngs.filter(function(g){ return (g.name||"").trim(); })
+                  .map(function(g){ return {sid:g.sid,name:g.name.trim(),qty:num(g.qty),unit:g.unit}; });
+  r.steps = tmpSteps.map(function(s){ return s.trim(); }).filter(function(s){ return s; });
+  r.by = meName(); r.updated = today();
+  save(); closeSheet(); render(); toast("레시피를 저장했어요 ✓");
+}
+function delRecipe(id){
+  if(!confirm("이 레시피를 삭제할까요?")) return;
+  data.recipes = data.recipes.filter(function(r){ return r.id!==id; });
+  save(); closeSheet(); render();
+}
+</script>
+<script>
+/* ═══════════════ 자재 관리 ═══════════════ */
+function stockCats(){
+  const set={}; data.stock.forEach(function(i){ if(i.cat) set[i.cat]=1; });
+  return Object.keys(set);
+}
+function vendors(){
+  const set={}; data.stock.forEach(function(i){ if(i.vendor) set[i.vendor]=1; });
+  return Object.keys(set);
+}
+function setVendor(v){ const el=document.getElementById("iV"); if(el) el.value=v; }
+function isLow(i){ return num(i.min)>0 && num(i.stock) <= num(i.min); }
+function viewStock(){
+  let html = '<div class="seg">'
+    + '<button class="'+(stockSub==="list"?"on":"")+'" onclick="stockSub=\'list\';render()">📦 재고</button>'
+    + '<button class="'+(stockSub==="log"?"on":"")+'" onclick="stockSub=\'log\';render()">🔄 입출고 이력</button></div>';
+  if(stockSub==="log") return html + viewStockLog();
+
+  const low = data.stock.filter(isLow);
+  if(low.length){
+    html += '<div class="card" style="border-color:#f5c6c2;background:var(--bad-soft)">'
+      + '<div class="row"><div class="sp"><b>⚠️ 발주 필요 '+low.length+'개</b>'
+      + '<div class="li-s">'+low.slice(0,4).map(function(i){return esc(i.name);}).join(", ")+(low.length>4?" 외":"")+'</div></div>'
+      + '<button class="btn sm bad" onclick="orderSheet()">발주서</button></div></div>';
+  }
+  const cats = ["전체"].concat(stockCats());
+  html += '<div class="row" style="margin-bottom:10px">'
+    + '<input class="sp" placeholder="🔍 자재 검색" value="'+esc(stockQ)+'" oninput="stockQ=this.value;renderStockList()">'
+    + '<button class="btn sm" onclick="editItem(null)">+ 추가</button></div>'
+    + '<div class="chips">'+cats.map(function(c){
+        return '<button class="chip '+(stockCat===c?"on":"")+'" onclick="stockCat=\''+jsq(c)+'\';render()">'+esc(c)+'</button>'; }).join("")+'</div>'
+    + '<div id="slist">'+stockListHtml()+'</div>';
+  return html;
+}
+function renderStockList(){ const el=document.getElementById("slist"); if(el) el.innerHTML=stockListHtml(); }
+function stockListHtml(){
+  const q=stockQ.trim().toLowerCase();
+  let list = data.stock.filter(function(i){
+    if(stockCat!=="전체" && i.cat!==stockCat) return false;
+    if(!q) return true;
+    return (i.name||"").toLowerCase().indexOf(q)>=0 || (i.vendor||"").toLowerCase().indexOf(q)>=0;
+  });
+  list.sort(function(a,b){
+    if(isLow(a)!==isLow(b)) return isLow(a)?-1:1;
+    return (a.name||"").localeCompare(b.name||"");
+  });
+  if(!list.length) return '<div class="card"><div class="empty">자재가 없어요.<br>+ 추가로 자주 쓰는 재료부터 등록해 보세요.</div></div>';
+  let h='<div class="card">';
+  list.forEach(function(i){
+    h += '<div class="li"><div class="sp" onclick="showItem(\''+i.id+'\')">'
+      + '<div class="li-t">'+esc(i.name)+(isLow(i)?' <span class="bdg bad">부족</span>':'')+'</div>'
+      + '<div class="li-s">재고 <b>'+num(i.stock)+esc(i.unit||"")+'</b>'
+      + (num(i.min)?' / 최소 '+num(i.min)+esc(i.unit||""):'')
+      + (isAdmin()&&num(i.price)?' · '+won(num(i.price))+'/'+esc(i.unit||"단위"):'')
+      + (i.vendor?' · '+esc(i.vendor):'')+'</div></div>'
+      + '<button class="btn xs ok" onclick="moveDlg(\''+i.id+'\',\'in\')">+입고</button>'
+      + '<button class="btn xs g" onclick="moveDlg(\''+i.id+'\',\'out\')">-사용</button></div>';
+  });
+  return h+'</div>';
+}
+function showItem(id){
+  const i=stockById(id); if(!i) return;
+  const logs = data.moves.filter(function(m){ return m.itemId===id; }).slice(-12).reverse();
+  const used = data.recipes.filter(function(r){ return (r.ings||[]).some(function(g){ return g.sid===id; }); });
+  let b='<div class="card"><div class="row top"><div class="sp">'
+    + '<div style="font-size:18px;font-weight:800">'+esc(i.name)+'</div>'
+    + '<div class="li-s">'+(i.cat?'<span class="bdg br">'+esc(i.cat)+'</span> ':'')+(i.vendor?esc(i.vendor):'')+'</div></div>'
+    + (isLow(i)?'<span class="bdg bad">발주 필요</span>':'<span class="bdg ok">충분</span>')+'</div>'
+    + '<div class="divh"></div>'
+    + '<div class="kv"><span>현재 재고</span><b>'+num(i.stock)+esc(i.unit||"")+'</b></div>'
+    + '<div class="kv"><span>최소 보유량</span><b>'+num(i.min)+esc(i.unit||"")+'</b></div>'
+    + (isAdmin()?'<div class="kv"><span>단가</span><b>'+won(num(i.price))+' / '+esc(i.unit||"단위")+'</b></div>'
+      +'<div class="kv"><span>재고 금액</span><b>'+won(num(i.stock)*num(i.price))+'</b></div>':'')
+    + (i.memo?'<div class="kv"><span>메모</span><b>'+esc(i.memo)+'</b></div>':'')
+    + '</div>';
+  b += '<div class="grid3" style="margin-bottom:12px">'
+    + '<button class="btn ok sm" onclick="moveDlg(\''+id+'\',\'in\')">+ 입고</button>'
+    + '<button class="btn g sm" onclick="moveDlg(\''+id+'\',\'out\')">- 사용</button>'
+    + '<button class="btn g sm" onclick="moveDlg(\''+id+'\',\'adj\')">📐 실사</button></div>';
+  if(used.length && canRecipe()){
+    b += '<div class="card"><div class="sec-t">📖 이 재료를 쓰는 레시피</div>';
+    used.forEach(function(r){
+      const g=(r.ings||[]).filter(function(x){return x.sid===id;})[0];
+      b += '<div class="li"><div class="sp li-t">'+esc(r.name)+'</div><span class="muted">'+num(g.qty)+esc(g.unit||"")+'</span></div>';
+    });
+    b += '</div>';
+  }
+  b += '<div class="card"><div class="sec-t">🔄 최근 입출고</div>';
+  if(!logs.length) b += '<div class="muted">기록이 없어요</div>';
+  logs.forEach(function(m){ b += moveRow(m,false); });
+  b += '</div>';
+  b += '<button class="btn full" onclick="editItem(\''+id+'\')">✏️ 자재 정보 수정</button>';
+  sheet("자재 상세", b);
+}
+function moveRow(m, withName){
+  const i = stockById(m.itemId);
+  const lbl = {in:"입고",out:"사용",adj:"실사"}[m.type];
+  const cls = {in:"ok",out:"warn",adj:"blue"}[m.type];
+  const sign = m.type==="out" ? "-" : (m.type==="in"?"+":"→");
+  return '<div class="li"><div class="sp"><div class="li-t">'
+    + (withName? esc(i?i.name:"(삭제됨)")+' ' : '')
+    + '<span class="bdg '+cls+'">'+lbl+'</span></div>'
+    + '<div class="li-s">'+esc(m.date)+(m.by?' · '+esc(m.by):'')+(m.memo?' · '+esc(m.memo):'')+'</div></div>'
+    + '<div style="text-align:right"><b>'+sign+num(m.qty)+esc((i&&i.unit)||"")+'</b>'
+    + (m.type==="in"&&num(m.amt)?'<div class="li-s">'+won(num(m.amt))+'</div>':'')+'</div></div>';
+}
+function viewStockLog(){
+  const logs = data.moves.slice().reverse().slice(0,120);
+  let h='<div class="card"><div class="row" style="margin-bottom:6px"><div class="sec-t sp" style="margin:0">🔄 입출고 이력</div>';
+  if(isAdmin()){
+    const m = monthKey(new Date());
+    let inAmt=0; data.moves.forEach(function(x){ if(x.type==="in" && (x.date||"").slice(0,7)===m) inAmt+=num(x.amt); });
+    h += '<span class="bdg br">이번달 매입 '+won(inAmt)+'</span>';
+  }
+  h += '</div>';
+  if(!logs.length) h += '<div class="empty">기록이 없어요</div>';
+  logs.forEach(function(m){ h += moveRow(m,true); });
+  return h+'</div>';
+}
+function moveDlg(id,type){
+  const i=stockById(id); if(!i) return;
+  const t = {in:"입고",out:"사용·폐기",adj:"재고 실사"}[type];
+  let b = '<div class="card tight"><div class="row"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
+    + '<div class="li-s">현재 재고 '+num(i.stock)+esc(i.unit||"")+'</div></div></div></div>';
+  b += '<div class="f"><label>'+(type==="adj"?"실제 재고 수량":"수량")+' ('+esc(i.unit||"단위")+')</label>'
+    + '<input type="number" step="any" id="mQ" inputmode="decimal" value="'+(type==="adj"?num(i.stock):"")+'" autofocus></div>';
+  if(type==="in") b += '<div class="grid2"><div class="f"><label>총 결제금액 (원, 선택)</label><input type="number" id="mA" placeholder="입력 시 단가 자동 갱신"></div>'
+    + '<div class="f"><label>날짜</label><input type="date" id="mD" value="'+today()+'"></div></div>';
+  else b += '<div class="f"><label>날짜</label><input type="date" id="mD" value="'+today()+'"></div>';
+  b += '<div class="f"><label>메모</label><input id="mM" placeholder="'+(type==="out"?"폐기 사유 / 사용처":"거래처 / 비고")+'"></div>'
+    + '<button class="btn full '+(type==="in"?"ok":"")+'" onclick="doMove(\''+id+'\',\''+type+'\')">'+t+' 기록</button>';
+  sheet(t, b);
+  setTimeout(function(){ const q=document.getElementById("mQ"); if(q) q.focus(); },150);
+}
+function doMove(id,type){
+  const i=stockById(id); if(!i) return;
+  const q=num(document.getElementById("mQ").value);
+  const d=document.getElementById("mD").value||today();
+  const memo=document.getElementById("mM").value;
+  if(!q && type!=="adj"){ toast("수량을 입력하세요"); return; }
+  let logQty=q, amt=0;
+  if(type==="in"){
+    const aEl=document.getElementById("mA"); amt=num(aEl?aEl.value:0);
+    i.stock = num(i.stock)+q;
+    if(amt>0 && q>0) i.price = Math.round(amt/q);
+  } else if(type==="out"){
+    i.stock = num(i.stock)-q;
+  } else {
+    logQty = q; i.stock = q;
+  }
+  data.moves.push({ id:uid(), itemId:id, type:type, qty:logQty, amt:amt, date:d, memo:memo, by:meName() });
+  save(); closeSheet(); render();
+  toast(i.name+" "+({in:"입고",out:"사용",adj:"실사"}[type])+" ✓ 현재 "+num(i.stock)+(i.unit||""));
+}
+function editItem(id){
+  const i = id? stockById(id):null;
+  const cats = stockCats();
+  const b = '<div class="f"><label>자재명</label><input id="iN" value="'+(i?esc(i.name):"")+'" placeholder="예: 부산어묵 사각"></div>'
+    + '<div class="grid2">'
+    + '<div class="f"><label>분류</label><input id="iC" list="scat" value="'+(i?esc(i.cat):"")+'" placeholder="어묵/야채/소스">'
+    + '<datalist id="scat">'+cats.map(function(c){return '<option value="'+esc(c)+'">';}).join("")+'</datalist></div>'
+    + '<div class="f"><label>단위</label><input id="iU" value="'+(i?esc(i.unit):"")+'" placeholder="kg / 봉 / 박스"></div></div>'
+    + '<div class="grid3">'
+    + '<div class="f"><label>현재고</label><input type="number" step="any" id="iS" value="'+(i?num(i.stock):0)+'"></div>'
+    + '<div class="f"><label>최소 보유</label><input type="number" step="any" id="iM" value="'+(i?num(i.min):0)+'"></div>'
+    + '<div class="f"><label>단가(원)</label><input type="number" id="iP" value="'+(i?num(i.price):0)+'"></div></div>'
+    + '<div class="f"><label>거래처</label><input id="iV" list="vlist" value="'+(i?esc(i.vendor):"")+'" placeholder="예: 대성식자재">'
+    + '<datalist id="vlist">'+vendors().map(function(v){return '<option value="'+esc(v)+'">';}).join("")+'</datalist>'
+    + (vendors().length? '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:7px">'
+        + vendors().map(function(v){ return '<button class="btn xs g" onclick="setVendor(\''+jsq(v)+'\')">'+esc(v)+'</button>'; }).join("")
+        + '</div>' : '<div class="muted" style="margin-top:5px">한 번 입력해두면 다음부터는 눌러서 고를 수 있어요</div>')
+    + '</div>'
+    + '<div class="f"><label>메모</label><input id="iMemo" value="'+(i?esc(i.memo):"")+'" placeholder="보관 위치 / 규격"></div>'
+    + '<div class="muted" style="margin-bottom:12px">💡 최소 보유량을 넣으면 재고가 그 아래로 떨어질 때 자동으로 발주 알림이 떠요.</div>'
+    + '<button class="btn full" onclick="saveItem(\''+(id||"")+'\')">저장</button>'
+    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delItem(\''+id+'\')">삭제</button>':'');
+  sheet(id?"자재 수정":"자재 추가", b);
+}
+function saveItem(id){
+  const n=document.getElementById("iN").value.trim();
+  if(!n){ toast("자재명을 입력하세요"); return; }
+  let i = id? stockById(id):null;
+  if(!i){ i={id:uid()}; data.stock.push(i); }
+  i.name=n;
+  i.cat=document.getElementById("iC").value.trim();
+  i.unit=document.getElementById("iU").value.trim();
+  i.stock=num(document.getElementById("iS").value);
+  i.min=num(document.getElementById("iM").value);
+  i.price=num(document.getElementById("iP").value);
+  i.vendor=document.getElementById("iV").value.trim();
+  i.memo=document.getElementById("iMemo").value;
+  save(); closeSheet(); render(); toast("저장했어요 ✓");
+}
+function delItem(id){
+  if(!confirm("이 자재를 삭제할까요? 레시피 연동도 해제됩니다.")) return;
+  data.stock = data.stock.filter(function(x){ return x.id!==id; });
+  data.recipes.forEach(function(r){ (r.ings||[]).forEach(function(g){ if(g.sid===id) g.sid=""; }); });
+  save(); closeSheet(); render();
+}
+function orderSheet(){
+  const low = data.stock.filter(isLow);
+  if(!low.length){ toast("발주가 필요한 자재가 없어요"); return; }
+  const byV={};
+  low.forEach(function(i){ const v=i.vendor||"거래처 미지정"; (byV[v]=byV[v]||[]).push(i); });
+  let t = "📦 "+(data.settings.store||"")+" 발주 요청 ("+dLabel(today())+")\n";
+  let b = '<div class="card"><div class="sec-t">발주 필요 '+low.length+'개</div>';
+  for(const v in byV){
+    t += "\n["+v+"]\n";
+    b += '<div style="font-weight:800;margin:10px 0 4px">'+esc(v)+'</div>';
+    byV[v].forEach(function(i){
+      const need = Math.max(num(i.min)*2 - num(i.stock), num(i.min));
+      const rec = Math.ceil(need*10)/10;
+      t += "· "+i.name+" — 현재 "+num(i.stock)+(i.unit||"")+" / 권장 주문 "+rec+(i.unit||"")+"\n";
+      b += '<div class="li"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
+        + '<div class="li-s">현재 '+num(i.stock)+esc(i.unit||"")+' · 최소 '+num(i.min)+esc(i.unit||"")+'</div></div>'
+        + '<span class="bdg bad">'+rec+esc(i.unit||"")+' 주문</span></div>';
+    });
+  }
+  b += '</div><button class="btn full" onclick="copyTxt(ORDER_TXT)">📋 발주서 복사 (카톡 붙여넣기)</button>';
+  window.ORDER_TXT = t;
+  sheet("발주서", b);
+}
+</script>
+<script>
+/* ═══════════════ 체크리스트 ═══════════════ */
+function chkPeriodKey(){
+  if(chkPeriod==="daily")  return dateKey(chkDate);
+  if(chkPeriod==="weekly") return weekKeyOf(dateKey(chkDate));
+  return monthKey(chkDate);
+}
+function chkKey(){ return chkArea+"|"+chkPeriod+"|"+chkPeriodKey(); }
+function weekOfMonth(){ return Math.ceil(chkDate.getDate()/7); }
+function chkLabel(){
+  if(chkPeriod==="daily")  return dLabel(dateKey(chkDate))+(dateKey(chkDate)===today()?" · 오늘":"");
+  if(chkPeriod==="weekly"){
+    const s=new Date(chkDate); s.setDate(s.getDate()-((s.getDay()+6)%7));
+    const e=new Date(s); e.setDate(e.getDate()+6);
+    return (s.getMonth()+1)+"/"+s.getDate()+" ~ "+(e.getMonth()+1)+"/"+e.getDate()+" 주간";
+  }
+  return monthLabel(monthKey(chkDate));
+}
+function moveChkDate(d){
+  if(chkPeriod==="daily")  chkDate.setDate(chkDate.getDate()+d);
+  else if(chkPeriod==="weekly") chkDate.setDate(chkDate.getDate()+7*d);
+  else chkDate.setMonth(chkDate.getMonth()+d);
+  render();
+}
+function viewCheck(){
+  const groups = data.chkItems[chkArea][chkPeriod] || {};
+  const map = data.checks[chkKey()] || {};
+  let tot=0, done=0;
+  for(const g in groups) groups[g].forEach(function(it){ tot++; if(map[g+"::"+it]) done++; });
+  const pct = tot? Math.round(done/tot*100):0;
+
+  let html = '<div class="seg">'
+    + '<button class="'+(chkArea==="hall"?"on":"")+'" onclick="chkArea=\'hall\';render()">🏠 홀</button>'
+    + '<button class="'+(chkArea==="kitchen"?"on":"")+'" onclick="chkArea=\'kitchen\';render()">🍳 주방</button></div>';
+  html += '<div class="chips">'
+    + [["daily","일일"],["weekly","주간"],["monthly","월간"]].map(function(p){
+        return '<button class="chip '+(chkPeriod===p[0]?"on":"")+'" onclick="chkPeriod=\''+p[0]+'\';render()">'+p[1]+'</button>'; }).join("")
+    + '</div>';
+  html += '<div class="card tight"><div class="row" style="margin-bottom:9px">'
+    + '<button class="btn g sm" onclick="moveChkDate(-1)">‹</button>'
+    + '<div class="sp" style="text-align:center;font-weight:800">'+chkLabel()+'</div>'
+    + '<button class="btn g sm" onclick="moveChkDate(1)">›</button></div>'
+    + '<div class="row" style="gap:8px"><div class="sp pbar"><i style="width:'+pct+'%"></i></div>'
+    + '<span class="muted" style="font-weight:700">'+done+'/'+tot+'</span></div></div>';
+
+  const wk = weekOfMonth();
+  for(const g in groups){
+    const isThisWeek = chkPeriod==="monthly" && g===(wk+"주차");
+    html += '<div class="card"><div class="row" style="margin-bottom:4px">'
+      + '<div class="sec-t sp" style="margin:0">'+esc(g)+(isThisWeek?' <span class="bdg br">이번주</span>':'')+'</div>'
+      + (isAdmin()?'<button class="btn xs g" onclick="addChkItem(\''+jsq(g)+'\')">+ 항목</button>':'')+'</div>';
+    groups[g].forEach(function(it,idx){
+      const k=g+"::"+it, c=map[k];
+      html += '<div class="chk '+(c?"done":"")+'" onclick="toggleChk(\''+jsq(g)+'\','+idx+')">'
+        + '<div class="box '+(c?"on":"")+'">'+(c?"✓":"")+'</div>'
+        + '<div class="sp"><div class="ctxt">'+esc(it)+'</div>'
+        + (c?'<div class="li-s">'+esc(c.t)+(c.by?' · '+esc(c.by):'')+'</div>':'')+'</div>'
+        + (isAdmin()?'<button class="btn xs g" onclick="event.stopPropagation();delChkItem(\''+jsq(g)+'\','+idx+')">✕</button>':'')
+        + '</div>';
+    });
+    html += '</div>';
+  }
+  html += '<div class="grid2">'
+    + (isAdmin()?'<button class="btn g sm" onclick="addChkGroup()">+ 그룹 추가</button>':'<span></span>')
+    + '<button class="btn g sm" onclick="copyChk()">📋 결과 복사</button></div>';
+  return html;
+}
+function toggleChk(g,idx){
+  const it = data.chkItems[chkArea][chkPeriod][g][idx];
+  const key = chkKey(), k = g+"::"+it;
+  if(!data.checks[key]) data.checks[key]={};
+  if(data.checks[key][k]) delete data.checks[key][k];
+  else data.checks[key][k] = { d:today(), t:nowHM(), by:meName() };
+  save(); render();
+}
+function addChkItem(g){
+  const v = prompt("["+g+"]에 추가할 항목을 입력하세요");
+  if(!v || !v.trim()) return;
+  data.chkItems[chkArea][chkPeriod][g].push(v.trim());
+  save(); render();
+}
+function delChkItem(g,idx){
+  if(!confirm("이 항목을 삭제할까요?")) return;
+  data.chkItems[chkArea][chkPeriod][g].splice(idx,1);
+  save(); render();
+}
+function addChkGroup(){
+  const v = prompt("새 그룹 이름 (예: 배달 준비)");
+  if(!v || !v.trim()) return;
+  if(!data.chkItems[chkArea][chkPeriod][v.trim()]) data.chkItems[chkArea][chkPeriod][v.trim()]=[];
+  save(); render();
+}
+function copyChk(){
+  const groups=data.chkItems[chkArea][chkPeriod]||{}, map=data.checks[chkKey()]||{};
+  let t = "✅ "+(data.settings.store||"")+" "+(chkArea==="hall"?"홀":"주방")+" "
+        + ({daily:"일일",weekly:"주간",monthly:"월간"}[chkPeriod])+" 체크\n"+chkLabel()+"\n─────────────────\n";
+  for(const g in groups){
+    t += "["+g+"]\n";
+    groups[g].forEach(function(it){
+      const c=map[g+"::"+it];
+      t += (c?"✔ ":"☐ ")+it+(c&&c.by?" ("+c.by+" "+c.t+")":"")+"\n";
+    });
+    t += "\n";
+  }
+  copyTxt(t.trim());
+}
+
+/* ═══════════════ 시트 · 내 정보 · 설정 ═══════════════ */
+function sheet(title, html){
+  document.getElementById("shTitle").textContent = title;
+  document.getElementById("shBody").innerHTML = html;
+  markKorean(document.getElementById("shBody"));
+  document.getElementById("mask").classList.add("on");
+  document.querySelector(".sheet").scrollTop = 0;
+}
+/* 글자 입력칸은 한글 우선으로 (숫자·시간·날짜 칸은 제외) */
+function markKorean(root){
+  if(!root) return;
+  const els = root.querySelectorAll("input:not([type]), input[type=text], textarea");
+  for(let i=0;i<els.length;i++){
+    els[i].setAttribute("lang","ko");
+    els[i].setAttribute("inputmode","text");
+    els[i].setAttribute("autocapitalize","off");
+    els[i].setAttribute("autocorrect","off");
+    els[i].setAttribute("spellcheck","false");
+  }
+}
+function closeSheet(){ document.getElementById("mask").classList.remove("on"); }
+
+function openMe(){
+  let b = '<div class="card"><div class="sec-t">👤 이 기기를 쓰는 사람</div>';
+  if(!data.staff.length) b += '<div class="muted" style="margin-bottom:10px">등록된 직원이 없어요. 아래에서 바로 추가하세요.</div>';
+  data.staff.filter(function(s){ return s.active!==false; }).forEach(function(s){
+    b += '<div class="li" onclick="setMe(\''+s.id+'\')"><div class="sp"><div class="li-t">'+esc(s.name)+'</div>'
+      + '<div class="li-s">'+deptLabel(s.dept)+' 담당'
+      + ((s.dept==="kitchen"||s.dept==="both")?' · 레시피 열람 가능':' · 레시피 비공개')+'</div></div>'
+      + (meId===s.id?'<span class="bdg ok">선택됨</span>':'<span class="bdg">선택</span>')+'</div>';
+  });
+  b += '<button class="btn g full sm" style="margin-top:10px" onclick="closeSheet();editStaff(null)">+ 직원 추가</button></div>';
+
+  b += '<div class="card"><div class="sec-t">🔑 이 기기 권한</div>'
+    + '<div class="li"><div class="sp"><div class="li-t">'+(isAdmin()?"관리자 (사장님)":"직원")+'</div>'
+    + '<div class="li-s">'+(isAdmin()
+        ? "급여·단가·기록 수정 + 레시피 열람 모두 가능"
+        : ("출퇴근·자재·체크리스트 사용 (급여 비공개) · 레시피 "+(canRecipe()?"열람 가능":"비공개")))+'</div></div>'
+    + '<button class="btn sm '+(isAdmin()?"g":"")+'" onclick="toggleRole()">'+(isAdmin()?"직원 모드로":"관리자 전환")+'</button></div>'
+    + '<div class="muted" style="margin-top:8px">직원 폰에서는 <b>직원 모드</b>로 두세요. 급여 화면과 자재 단가가 숨겨집니다.</div></div>';
+  sheet("나 / 권한", b);
+}
+function setMe(id){
+  meId=id; lsSet("sm-me", id);
+  closeSheet(); render(); toast(meName()+" 님으로 설정했어요 ✓");
+}
+function toggleRole(){
+  if(isAdmin()){
+    myRole="staff"; lsSet("sm-role","staff");
+    closeSheet(); if(tab==="work") workSub="punch"; render(); toast("직원 모드로 전환했어요");
+  } else {
+    const v = prompt("관리자 핀번호를 입력하세요");
+    if(v===null) return;
+    if(String(v).trim() !== String(data.settings.adminPin||"1234")){ toast("핀번호가 틀려요 ✕"); return; }
+    myRole="admin"; lsSet("sm-role","admin");
+    closeSheet(); render(); toast("관리자 모드 ✓");
+  }
+}
+function openSettings(){
+  const S=data.settings;
+  let b='<div class="card"><div class="sec-t">🏪 가게</div>'
+    + '<div class="f"><label>가게 이름</label><input id="stName" value="'+esc(S.store)+'"></div>'
+    + '<div class="f"><label>급여 지급일 (매월)</label><input type="number" id="stPay" value="'+num(S.payday,10)+'"></div></div>';
+  if(isAdmin()){
+    b += '<div class="card"><div class="sec-t">💰 수당 규칙</div>'
+      + tog("stNight","야간수당 (22~06시 0.5배 가산)",S.nightPay)
+      + tog("stWeek","주휴수당 자동계산 (주 15시간 이상)",S.weeklyPay)
+      + tog("stOT","연장수당 (1일 8시간 초과 0.5배)",S.otPay)
+      + '<div class="muted" style="margin-top:8px">※ 상시근로자 5인 미만 사업장은 야간·연장 가산수당 지급 의무가 없어요. '
+      + '가게 상황에 맞게 꺼두셔도 됩니다.</div></div>';
+    b += '<div class="card"><div class="sec-t">🔑 관리자 핀번호</div>'
+      + '<div class="f"><input id="stPin" inputmode="numeric" maxlength="6" value="'+esc(S.adminPin||"1234")+'"></div>'
+      + '<div class="muted">직원 모드에서 관리자로 돌아올 때 필요해요.</div></div>';
+  }
+  b += '<div class="card"><div class="sec-t">📲 팀 공유</div>'
+    + (TEAM_ID
+        ? '<div class="li"><div class="sp"><div class="li-t" style="font-family:monospace">'+esc(TEAM_ID)+'</div>'
+          + '<div class="li-s">이 코드를 넣은 기기끼리 실시간으로 공유돼요</div></div>'
+          + '<button class="btn xs g" onclick="copyTxt(TEAM_ID)">복사</button></div>'
+          + '<button class="btn g full sm" style="margin-top:10px" onclick="openTeamGate()">팀 코드 변경 / 다시 연결</button>'
+          + '<div class="muted" style="margin-top:8px">⚠️ 코드를 아는 사람은 급여까지 볼 수 있어요. 직원에게만 알려주세요.</div>'
+        : '<div class="muted" style="margin-bottom:10px">아직 팀 코드가 없어요. 지금은 이 기기에만 저장됩니다.</div>'
+          + '<button class="btn full sm" onclick="openTeamGate()">팀 코드 설정하기</button>')
+    + '</div>';
+  b += '<div class="card"><div class="sec-t">💾 백업</div>'
+    + '<div class="grid2" style="margin-top:2px">'
+    + '<button class="btn g sm" onclick="backup()">💾 백업 파일</button>'
+    + '<button class="btn g sm" onclick="restore()">📂 복원</button></div></div>';
+  b += '<button class="btn full" onclick="saveSettings()">저장</button>';
+  b += '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="resetAll()">전체 데이터 초기화</button>';
+  sheet("설정", b);
+}
+/* ═══ 팀 코드 연결 ═══ */
+function openTeamGate(){
+  const b = '<div class="card"><div class="sec-t">🏪 사장님 — 처음 시작</div>'
+    + '<div class="muted" style="margin-bottom:11px">새 팀 코드를 만들고 직원에게 알려주세요. '
+    + '이 기기에 지금 들어있는 자료가 그대로 팀 자료가 됩니다.</div>'
+    + '<button class="btn full" onclick="makeTeam()">＋ 새 팀 코드 만들기</button></div>'
+    + '<div class="card"><div class="sec-t">👥 직원 — 사장님께 코드를 받았다면</div>'
+    + '<div class="f"><input id="tCode" lang="en" autocapitalize="off" autocorrect="off" spellcheck="false" '
+    + 'placeholder="store-xxxxxxxxxx" value="'+esc(TEAM_ID)+'"></div>'
+    + '<button class="btn full ok" onclick="joinTeam()">연결하기</button>'
+    + '<div class="muted" style="margin-top:9px">⚠️ 연결하면 이 기기의 내용이 팀 자료로 바뀝니다.</div></div>'
+    + '<button class="btn g full" onclick="closeSheet()">나중에 (이 기기에만 저장)</button>';
+  sheet("팀 코드", b);
+}
+function makeTeam(){
+  const c = newTeamCode();
+  if(!confirm("새 팀 코드를 만들까요?\n\n"+c+"\n\n직원 폰에서 이 코드를 입력하면 자료가 공유돼요.")) return;
+  if(setTeam(c)){ closeSheet(); toast("팀 코드 생성 ✓"); setTimeout(openSettings,300); }
+}
+function joinTeam(){
+  const v = document.getElementById("tCode").value;
+  if(!v.trim()){ toast("코드를 입력하세요"); return; }
+  if(!confirm("이 기기를 팀에 연결할까요?\n연결하면 팀 자료를 내려받아 현재 내용을 덮어씁니다.")) return;
+  if(setTeam(v)){ closeSheet(); toast("연결했어요 ✓"); }
+}
+function tog(id,label,on){
+  return '<div class="li"><div class="sp li-t" style="font-weight:600">'+label+'</div>'
+    + '<select id="'+id+'" style="width:88px"><option value="1" '+(on?"selected":"")+'>사용</option>'
+    + '<option value="0" '+(on?"":"selected")+'>끔</option></select></div>';
+}
+function saveSettings(){
+  const S=data.settings;
+  S.store=document.getElementById("stName").value.trim()||"가게관리";
+  S.payday=num(document.getElementById("stPay").value,10);
+  const n=document.getElementById("stNight");
+  if(n){
+    S.nightPay = n.value==="1";
+    S.weeklyPay = document.getElementById("stWeek").value==="1";
+    S.otPay = document.getElementById("stOT").value==="1";
+    S.adminPin = document.getElementById("stPin").value.trim()||"1234";
+  }
+  save(); closeSheet(); render(); toast("설정을 저장했어요 ✓");
+}
+function backup(){
+  const blob = new Blob([JSON.stringify(data,null,1)], {type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=(data.settings.store||"가게")+"_백업_"+today()+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast("백업 파일을 저장했어요");
+}
+function restore(){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept=".json,application/json";
+  inp.onchange=function(){
+    const f=inp.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=function(){
+      try{
+        const d=JSON.parse(rd.result);
+        if(!confirm("현재 데이터를 백업 파일 내용으로 덮어쓸까요?")) return;
+        FIELDS.forEach(function(k){ if(d[k]!==undefined && d[k]!==null) data[k]=d[k]; });
+        save(); closeSheet(); render(); toast("복원했어요 ✓");
+      }catch(e){ toast("파일을 읽을 수 없어요"); }
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
+}
+function resetAll(){
+  if(!confirm("모든 데이터(직원·근무기록·레시피·자재·체크)를 지웁니다. 계속할까요?")) return;
+  if(!confirm("정말 초기화할까요? 되돌릴 수 없어요.")) return;
+  const fresh = JSON.parse(JSON.stringify(BLANK));
+  fresh.chkItems = JSON.parse(JSON.stringify(DEFAULT_CHK));
+  FIELDS.forEach(function(k){ data[k]=fresh[k]; });
+  save(); closeSheet(); render(); toast("초기화했어요");
+}
+
+/* ═══════════════ 시작 ═══════════════ */
+loadLocal();
+loadTeam();
+if(!data.chkItems) data.chkItems = JSON.parse(JSON.stringify(DEFAULT_CHK));
+render();
+initFirebase();
+if(!TEAM_ID) setTimeout(openTeamGate, 500);
+if(location.protocol.indexOf("http")===0 && "serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(function(){});
+}
+setInterval(function(){ if(tab==="home" && !document.getElementById("mask").classList.contains("on")) render(); }, 60000);
+</script>
+</body>
+</html>

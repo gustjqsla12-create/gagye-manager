@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23g";
+const APP_VER    = "2026-08-23h";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -275,12 +275,14 @@ const DEFAULT_CHK = {
 const BLANK = {
   settings:{ store:"강서오뎅", nightPay:true, weeklyPay:true, otPay:false, payday:10, adminPin:"1234" },
   staff:[], attend:[], stock:[], moves:[], recipes:[], payAdj:{},
+  sales:[], notes:[], shifts:[],
   chkItems:null, checks:{}
 };
 let data = JSON.parse(JSON.stringify(BLANK));
 data.chkItems = JSON.parse(JSON.stringify(DEFAULT_CHK));
 
-const FIELDS = ["settings","staff","attend","stock","moves","recipes","payAdj","chkItems","checks"];
+const FIELDS = ["settings","staff","attend","stock","moves","recipes","payAdj",
+                "sales","notes","shifts","chkItems","checks"];
 
 let CLIENT_ID = lsGet("sm-client");
 if(!CLIENT_ID){ CLIENT_ID = "c"+Math.random().toString(36).slice(2,9); lsSet("sm-client", CLIENT_ID); }
@@ -653,6 +655,24 @@ function render(){
   paintSync();
 }
 
+/* ═══ 인수인계 메모 ═══ */
+function addNote(){
+  const v = prompt("다음 근무자에게 남길 내용을 적으세요\n(예: 참이슬 2박스 남음, 3번 테이블 의자 흔들림)");
+  if(v===null) return;
+  const t=v.trim(); if(!t) return;
+  data.notes.push({ id:uid(), text:t, by:meName()||"익명", date:today(), time:nowHM(), at:Date.now(), done:false });
+  save(); render(); toast("메모를 남겼어요 ✓");
+}
+function doneNote(id){
+  const n = data.notes.filter(function(x){ return x.id===id; })[0];
+  if(!n) return;
+  n.done = true; n.doneBy = meName(); n.doneAt = Date.now();
+  data.notes = data.notes.filter(function(x){
+    return !x.done || (Date.now() - (x.doneAt||0)) < 7*86400000;   /* 확인된 메모는 7일 뒤 정리 */
+  });
+  save(); render(); toast("확인 처리했어요");
+}
+
 /* ═══════════════ 홈 ═══════════════ */
 function chkProgress(area, period, dkey){
   const groups = data.chkItems[area][period] || {};
@@ -724,6 +744,43 @@ function viewHome(){
     html += '</div>';
   }
 
+  /* 인수인계 메모 */
+  const openNotes = data.notes.filter(function(n){ return !n.done; })
+                              .sort(function(a,b){ return (b.at||0)-(a.at||0); });
+  html += '<div class="card"><div class="row" style="margin-bottom:6px">'
+       +  '<div class="sec-t sp" style="margin:0">📌 인수인계 메모</div>'
+       +  '<button class="btn xs" onclick="addNote()">+ 남기기</button></div>';
+  if(!openNotes.length) html += '<div class="muted">남긴 메모가 없어요</div>';
+  openNotes.slice(0,5).forEach(function(n){
+    html += '<div class="li"><button class="box" onclick="doneNote(\''+n.id+'\')"></button>'
+         +  '<div class="sp"><div class="ctxt">'+esc(n.text).replace(/\n/g,"<br>")+'</div>'
+         +  '<div class="li-s">'+esc(n.by||"")+' · '+esc(n.date||"")+' '+esc(n.time||"")+'</div></div></div>';
+  });
+  if(openNotes.length>5) html += '<div class="muted" style="padding-top:6px">외 '+(openNotes.length-5)+'개</div>';
+  html += '</div>';
+
+  /* 유통기한 임박 */
+  const soon = expSoon(7);
+  if(soon.length){
+    html += '<div class="card" style="border-color:#f6d9a8;background:var(--warn-soft)">'
+         +  '<div class="sec-t">📅 유통기한 임박</div>';
+    soon.slice(0,6).forEach(function(x){
+      html += '<div class="li"><div class="sp"><div class="li-t">'+esc(x.item.name)+'</div>'
+           +  '<div class="li-s">'+esc(x.item.exp)+' · 재고 '+num(x.item.stock)+esc(x.item.unit||"")+'</div></div>'
+           +  '<span class="bdg '+(x.past?"bad":"warn")+'">'+expLabel(x.item.exp)+'</span></div>';
+    });
+    html += '</div>';
+  }
+
+  /* 오늘 매출 (관리자) */
+  if(isAdmin()){
+    const ts = todaySales();
+    html += '<div class="card"><div class="row">'
+         +  '<div class="sp"><div class="sec-t" style="margin:0">💵 오늘 매출</div>'
+         +  '<div style="font-size:19px;font-weight:800;margin-top:3px">'+(ts?won(ts):'<span class="muted" style="font-size:14px">아직 입력 전</span>')+'</div></div>'
+         +  '<button class="btn sm" onclick="editSale(null)">'+(ts?'수정':'입력')+'</button></div></div>';
+  }
+
   /* 오늘 체크리스트 */
   html += '<div class="card"><div class="sec-t">✅ 오늘 체크리스트</div>';
   [["hall","🏠 홀",hall],["kitchen","🍳 주방",kit]].forEach(function(x){
@@ -767,11 +824,15 @@ function viewHome(){
 <script>
 /* ═══════════════ 근태 · 급여 ═══════════════ */
 function viewWork(){
-  let html = '<div class="seg">'
-    + '<button class="'+(workSub==="punch"?"on":"")+'" onclick="workSub=\'punch\';render()">⏱️ 근무기록</button>'
-    + (isAdmin()? '<button class="'+(workSub==="pay"?"on":"")+'" onclick="workSub=\'pay\';render()">💰 급여계산</button>':'')
-    + '<button class="'+(workSub==="staff"?"on":"")+'" onclick="workSub=\'staff\';render()">👥 직원</button></div>';
-  if(workSub==="pay" && isAdmin()) return html + viewPay();
+  const subs = [["punch","⏱️ 근무"],["shift","📅 스케줄"]]
+    .concat(isAdmin()? [["pay","💰 급여"],["pl","📊 손익"]] : [])
+    .concat([["staff","👥 직원"]]);
+  let html = '<div class="chips">'+subs.map(function(s){
+      return '<button class="chip '+(workSub===s[0]?"on":"")+'" onclick="workSub=\''+s[0]+'\';render()">'+s[1]+'</button>';
+    }).join("")+'</div>';
+  if(workSub==="pay"   && isAdmin()) return html + viewPay();
+  if(workSub==="pl"    && isAdmin()) return html + viewPL();
+  if(workSub==="shift") return html + viewShift();
   if(workSub==="staff") return html + viewStaff();
   return html + viewPunch();
 }
@@ -982,6 +1043,178 @@ function copyPayAll(){
   });
   t += "─────────────────\n실지급 합계 "+won(net);
   copyTxt(t);
+}
+
+/* ═══════════════ 매출 · 손익 ═══════════════ */
+function salesOf(m){ return data.sales.filter(function(s){ return (s.date||"").slice(0,7)===m; }); }
+function monthPL(m){
+  const sales = salesOf(m);
+  let rev=0; sales.forEach(function(s){ rev += num(s.amount); });
+  let buy=0; data.moves.forEach(function(x){
+    if(x.type==="in" && (x.date||"").slice(0,7)===m) buy += num(x.amt);
+  });
+  let labor=0, labMin=0;
+  data.staff.forEach(function(s){ const p=payroll(s,m); labor += p.gross; labMin += p.totalMin; });
+  const days = {}; sales.forEach(function(s){ days[s.date]=1; });
+  return { rev:rev, buy:buy, labor:labor, labMin:labMin,
+           days:Object.keys(days).length,
+           profit: rev - buy - labor,
+           laborPct: rev? labor/rev*100 : 0,
+           buyPct:   rev? buy/rev*100 : 0 };
+}
+function viewPL(){
+  const m = payMonth, p = monthPL(m);
+  let html = '<div class="card tight"><div class="row">'
+    + '<button class="btn g sm" onclick="payMonth=shiftMonth(payMonth,-1);render()">‹</button>'
+    + '<div class="sp" style="text-align:center;font-weight:800">'+monthLabel(m)+'</div>'
+    + '<button class="btn g sm" onclick="payMonth=shiftMonth(payMonth,1);render()">›</button></div></div>';
+
+  html += '<div class="card"><div class="row" style="margin-bottom:8px">'
+    + '<div class="sec-t sp" style="margin:0">💵 오늘 매출</div>'
+    + '<button class="btn xs" onclick="editSale(null)">+ 매출 입력</button></div>'
+    + '<div class="kv big"><span>'+dLabel(today())+'</span><b>'+won(todaySales())+'</b></div></div>';
+
+  html += '<div class="card"><div class="sec-t">📊 '+monthLabel(m)+' 손익</div>'
+    + '<div class="kv"><span>매출 ('+p.days+'일 입력)</span><b>'+won(p.rev)+'</b></div>'
+    + '<div class="kv"><span>재료 매입</span><b>-'+won(p.buy)+(p.rev?' <span class="bdg '+(p.buyPct>40?"bad":p.buyPct>33?"warn":"ok")+'">'+p.buyPct.toFixed(1)+'%</span>':'')+'</b></div>'
+    + '<div class="kv"><span>인건비 (세전)</span><b>-'+won(p.labor)+(p.rev?' <span class="bdg '+(p.laborPct>30?"bad":p.laborPct>25?"warn":"ok")+'">'+p.laborPct.toFixed(1)+'%</span>':'')+'</b></div>'
+    + '<div class="kv big"><span>남는 돈 (임대료·공과금 전)</span><b style="color:'+(p.profit>=0?"var(--ok)":"var(--bad)")+'">'+won(p.profit)+'</b></div>'
+    + '<div class="muted" style="margin-top:8px">※ 매입은 자재 입고 시 적은 결제금액, 인건비는 근무기록 기준이에요.<br>'
+    + '일반적으로 식자재 30~35%, 인건비 25~30% 안쪽이면 양호합니다.</div></div>';
+
+  const list = salesOf(m).slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+  html += '<div class="card"><div class="sec-t">📅 일별 매출</div>';
+  if(!list.length) html += '<div class="empty">입력된 매출이 없어요.<br>하루 한 번 마감 후 입력해 보세요.</div>';
+  list.forEach(function(s){
+    html += '<div class="li" onclick="editSale(\''+s.id+'\')"><div class="sp">'
+      + '<div class="li-t">'+dLabel(s.date)+'</div>'
+      + (s.memo?'<div class="li-s">'+esc(s.memo)+'</div>':'')+'</div>'
+      + '<b>'+won(s.amount)+'</b></div>';
+  });
+  html += '</div>';
+  html += '<button class="btn g full sm" onclick="copyReport()">📋 이번달 리포트 복사</button>';
+  return html;
+}
+function todaySales(){
+  let v=0; data.sales.forEach(function(s){ if(s.date===today()) v+=num(s.amount); });
+  return v;
+}
+function editSale(id){
+  const s = id? data.sales.filter(function(x){ return x.id===id; })[0] : null;
+  const b = '<div class="f"><label>날짜</label><input type="date" id="slD" value="'+(s?s.date:today())+'"></div>'
+    + '<div class="f"><label>매출 (원)</label><input type="number" inputmode="numeric" id="slA" value="'+(s?num(s.amount):"")+'" placeholder="예: 850000"></div>'
+    + '<div class="f"><label>메모</label><input id="slM" value="'+(s?esc(s.memo):"")+'" placeholder="단체 예약 / 비 와서 한산 등"></div>'
+    + '<button class="btn full" onclick="saveSale(\''+(id||"")+'\')">저장</button>'
+    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delSale(\''+id+'\')">삭제</button>':'');
+  sheet(id?"매출 수정":"매출 입력", b);
+}
+function saveSale(id){
+  const d=document.getElementById("slD").value, a=num(document.getElementById("slA").value);
+  if(!d){ toast("날짜를 넣어주세요"); return; }
+  let s = id? data.sales.filter(function(x){ return x.id===id; })[0] : null;
+  const dup = !id && data.sales.filter(function(x){ return x.date===d; })[0];
+  if(dup){ s = dup; }
+  if(!s){ s={id:uid()}; data.sales.push(s); }
+  s.date=d; s.amount=a; s.memo=document.getElementById("slM").value; s.by=meName();
+  save(); closeSheet(); render(); toast(dup? "그 날짜 매출을 수정했어요 ✓" : "저장했어요 ✓");
+}
+function delSale(id){
+  if(!confirm("이 매출 기록을 삭제할까요?")) return;
+  data.sales = data.sales.filter(function(x){ return x.id!==id; });
+  save(); closeSheet(); render();
+}
+function copyReport(){
+  const m=payMonth, p=monthPL(m);
+  let t = "📊 "+(data.settings.store||"")+" "+monthLabel(m)+" 리포트\n─────────────────\n";
+  t += "매출      "+won(p.rev)+" ("+p.days+"일)\n";
+  t += "재료매입  "+won(p.buy)+(p.rev?" ("+p.buyPct.toFixed(1)+"%)":"")+"\n";
+  t += "인건비    "+won(p.labor)+(p.rev?" ("+p.laborPct.toFixed(1)+"%)":"")+"\n";
+  t += "남는 돈   "+won(p.profit)+"\n─────────────────\n[직원별 근무]\n";
+  data.staff.filter(function(s){return s.active!==false;}).forEach(function(s){
+    const pr=payroll(s,m);
+    t += s.name+" "+pr.days+"일 "+durTxt(pr.totalMin)+" "+won(pr.net)+"\n";
+  });
+  const low=data.stock.filter(isLow);
+  if(low.length) t += "─────────────────\n발주 필요 "+low.length+"개: "
+    + low.slice(0,8).map(function(i){return i.name;}).join(", ")+(low.length>8?" 외":"");
+  copyTxt(t);
+}
+
+/* ═══════════════ 근무 스케줄 ═══════════════ */
+function weekStart(d){ const s=new Date(d); s.setDate(s.getDate()-((s.getDay()+6)%7)); return s; }
+function viewShift(){
+  const s0 = weekStart(workDate);
+  let html = '<div class="card tight"><div class="row">'
+    + '<button class="btn g sm" onclick="workDate.setDate(workDate.getDate()-7);render()">‹</button>'
+    + '<div class="sp" style="text-align:center;font-weight:800">'
+    + (s0.getMonth()+1)+'/'+s0.getDate()+' 주 스케줄</div>'
+    + '<button class="btn g sm" onclick="workDate.setDate(workDate.getDate()+7);render()">›</button></div></div>';
+  if(!data.staff.length) return html+'<div class="card"><div class="empty">직원을 먼저 등록해 주세요</div></div>';
+
+  for(let k=0;k<7;k++){
+    const d=new Date(s0); d.setDate(d.getDate()+k);
+    const dk=dateKey(d);
+    const list=data.shifts.filter(function(x){ return x.date===dk; })
+                          .sort(function(a,b){ return (a.start||"").localeCompare(b.start||""); });
+    html += '<div class="card"><div class="row" style="margin-bottom:4px">'
+      + '<div class="sec-t sp" style="margin:0">'+dLabel(dk)+(dk===today()?' <span class="bdg br">오늘</span>':'')+'</div>'
+      + (isAdmin()?'<button class="btn xs g" onclick="editShift(null,\''+dk+'\')">+ 배정</button>':'')+'</div>';
+    if(!list.length) html += '<div class="muted">배정 없음</div>';
+    list.forEach(function(x){
+      const st=staffById(x.staffId);
+      html += '<div class="li"><div class="sp"><div class="li-t">'+esc(st?st.name:"(삭제됨)")+'</div>'
+        + '<div class="li-s">'+esc(x.start||"")+' ~ '+esc(x.end||"")+(x.memo?' · '+esc(x.memo):'')+'</div></div>'
+        + (isAdmin()?'<button class="btn xs g" onclick="editShift(\''+x.id+'\')">수정</button>':'')+'</div>';
+    });
+    html += '</div>';
+  }
+  html += '<button class="btn g full sm" onclick="copyShift()">📋 이번주 스케줄 복사</button>';
+  return html;
+}
+function editShift(id, dk){
+  const x = id? data.shifts.filter(function(v){ return v.id===id; })[0] : null;
+  const opts = data.staff.filter(function(s){ return s.active!==false; }).map(function(s){
+    return '<option value="'+s.id+'" '+(x&&x.staffId===s.id?'selected':'')+'>'+esc(s.name)+'</option>'; }).join("");
+  const b = '<div class="f"><label>직원</label><select id="shSt">'+opts+'</select></div>'
+    + '<div class="f"><label>날짜</label><input type="date" id="shD" value="'+(x?x.date:(dk||today()))+'"></div>'
+    + '<div class="grid2"><div class="f"><label>시작</label><input type="time" id="shS" value="'+(x?esc(x.start):"17:00")+'"></div>'
+    + '<div class="f"><label>종료</label><input type="time" id="shE" value="'+(x?esc(x.end):"23:00")+'"></div></div>'
+    + '<div class="f"><label>메모</label><input id="shM" value="'+(x?esc(x.memo):"")+'" placeholder="홀 / 주방 / 반차 등"></div>'
+    + '<button class="btn full" onclick="saveShift(\''+(id||"")+'\')">저장</button>'
+    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delShift(\''+id+'\')">삭제</button>':'');
+  sheet(id?"스케줄 수정":"스케줄 배정", b);
+}
+function saveShift(id){
+  const sid=document.getElementById("shSt").value, d=document.getElementById("shD").value;
+  if(!sid||!d){ toast("직원과 날짜를 확인하세요"); return; }
+  let x = id? data.shifts.filter(function(v){ return v.id===id; })[0] : null;
+  if(!x){ x={id:uid()}; data.shifts.push(x); }
+  x.staffId=sid; x.date=d;
+  x.start=document.getElementById("shS").value; x.end=document.getElementById("shE").value;
+  x.memo=document.getElementById("shM").value;
+  save(); closeSheet(); render(); toast("저장했어요 ✓");
+}
+function delShift(id){
+  if(!confirm("이 배정을 삭제할까요?")) return;
+  data.shifts = data.shifts.filter(function(v){ return v.id!==id; });
+  save(); closeSheet(); render();
+}
+function copyShift(){
+  const s0=weekStart(workDate);
+  let t = "📅 "+(data.settings.store||"")+" 근무 스케줄\n─────────────────\n";
+  for(let k=0;k<7;k++){
+    const d=new Date(s0); d.setDate(d.getDate()+k);
+    const dk=dateKey(d);
+    const list=data.shifts.filter(function(x){ return x.date===dk; })
+                          .sort(function(a,b){ return (a.start||"").localeCompare(b.start||""); });
+    t += dLabel(dk)+"\n";
+    if(!list.length) t += "  - 없음\n";
+    list.forEach(function(x){
+      const st=staffById(x.staffId);
+      t += "  "+(st?st.name:"?")+" "+(x.start||"")+"~"+(x.end||"")+(x.memo?" ("+x.memo+")":"")+"\n";
+    });
+  }
+  copyTxt(t.trim());
 }
 
 /* ═══ 직원 관리 ═══ */
@@ -1389,6 +1622,90 @@ function pickUnit(u){
   el.value = (el.value===u? "" : u); drawItemCats();
 }
 function isLow(i){ return num(i.min)>0 && num(i.stock) <= num(i.min); }
+
+/* ═══ 재고 실사 · 최소보유량 일괄 입력 ═══ */
+let bulkMode = "stock";   // stock | min | exp
+function bulkSheet(mode){
+  bulkMode = mode || "stock";
+  const title = {stock:"재고 실사 (한 번에 입력)", min:"최소 보유량 한 번에 설정", exp:"유통기한 한 번에 입력"}[bulkMode];
+  let b = '<div class="seg">'
+    + [["stock","📐 재고"],["min","⚠️ 최소보유"],["exp","📅 유통기한"]].map(function(s){
+        return '<button class="'+(bulkMode===s[0]?"on":"")+'" onclick="bulkSheet(\''+s[0]+'\')">'+s[1]+'</button>';
+      }).join("")+'</div>';
+  b += '<div class="card tight"><div class="muted">'
+    + {stock:"실제로 세어본 수량을 적으세요. 빈 칸은 그대로 둡니다.",
+       min:"이 수량 이하로 떨어지면 발주 알림이 떠요. 자주 나가는 것부터 채우세요.",
+       exp:"가장 임박한 유통기한을 적으세요. 임박하면 홈에 알림이 뜹니다."}[bulkMode]
+    + '</div></div>';
+
+  const groups={}, order=[];
+  data.stock.slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||"","ko"); })
+    .forEach(function(i){
+      const g=i.cat||"기타";
+      if(!groups[g]){ groups[g]=[]; order.push(g); }
+      groups[g].push(i);
+    });
+  order.sort(function(a,b){ return a.localeCompare(b,"ko"); });
+  order.forEach(function(g){
+    b += '<div class="card"><div class="sec-t">'+esc(g)+' ('+groups[g].length+')</div>';
+    groups[g].forEach(function(i){
+      const val = bulkMode==="stock"? num(i.stock) : bulkMode==="min"? num(i.min) : (i.exp||"");
+      b += '<div class="li"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
+        + '<div class="li-s">'+(bulkMode==="exp"
+            ? '재고 '+num(i.stock)+esc(i.unit||"")
+            : '현재 '+num(i.stock)+esc(i.unit||"")+(num(i.min)?' / 최소 '+num(i.min):''))+'</div></div>'
+        + (bulkMode==="exp"
+            ? '<input type="date" data-bid="'+i.id+'" value="'+esc(val)+'" style="width:150px">'
+            : '<input type="number" step="any" inputmode="decimal" data-bid="'+i.id+'" value="'+val+'" style="width:88px;text-align:right">')
+        + '</div>';
+    });
+    b += '</div>';
+  });
+  b += '<button class="btn full ok" onclick="bulkSave()">전체 저장</button>';
+  sheet(title, b);
+}
+function bulkSave(){
+  const els = document.getElementById("shBody").querySelectorAll("[data-bid]");
+  let n=0;
+  for(let k=0;k<els.length;k++){
+    const el=els[k], it=stockById(el.dataset.bid);
+    if(!it) continue;
+    if(bulkMode==="exp"){
+      if((it.exp||"") !== el.value){ it.exp=el.value; n++; }
+    } else {
+      if(el.value==="") continue;
+      const v=num(el.value);
+      if(bulkMode==="stock"){
+        if(num(it.stock)!==v){
+          data.moves.push({ id:uid(), itemId:it.id, type:"adj", qty:v, amt:0,
+                            date:today(), memo:"재고 실사", by:meName() });
+          it.stock=v; n++;
+        }
+      } else {
+        if(num(it.min)!==v){ it.min=v; n++; }
+      }
+    }
+  }
+  save(); closeSheet(); render();
+  toast(n? (n+"개 저장했어요 ✓") : "바뀐 내용이 없어요");
+}
+
+/* 유통기한 임박 (기본 7일 이내) */
+function expSoon(days){
+  const lim = new Date(); lim.setDate(lim.getDate()+(days===undefined?7:days));
+  const limK = dateKey(lim), t = today();
+  return data.stock.filter(function(i){ return i.exp && i.exp <= limK; })
+    .map(function(i){ return { item:i, past: i.exp < t }; })
+    .sort(function(a,b){ return (a.item.exp||"").localeCompare(b.item.exp||""); });
+}
+function expLabel(d){
+  if(!d) return "";
+  const t=today();
+  if(d < t) return "지남";
+  if(d === t) return "오늘";
+  const diff = Math.round((new Date(d) - new Date(t))/86400000);
+  return "D-"+diff;
+}
 function viewStock(){
   let html = '<div class="seg">'
     + '<button class="'+(stockSub==="list"?"on":"")+'" onclick="stockSub=\'list\';render()">📦 재고</button>'
@@ -1406,6 +1723,9 @@ function viewStock(){
   html += '<div class="row" style="margin-bottom:10px">'
     + '<input class="sp" placeholder="🔍 자재 검색" value="'+esc(stockQ)+'" oninput="stockQ=this.value;renderStockList()">'
     + '<button class="btn sm" onclick="editItem(null)">+ 추가</button></div>'
+    + '<div class="grid2" style="margin-bottom:10px">'
+    + '<button class="btn g sm" onclick="bulkSheet(\'stock\')">📐 재고 실사</button>'
+    + '<button class="btn g sm" onclick="bulkSheet(\'min\')">⚠️ 최소보유 설정</button></div>'
     + '<div class="row" style="margin-bottom:8px"><div class="muted sp">정렬</div>'
     + [["low","부족 먼저"],["name","가나다"],["cat","분류별"]].map(function(s){
         return '<button class="chip '+(stockSort===s[0]?"on":"")+'" onclick="stockSort=\''+s[0]+'\';render()">'+s[1]+'</button>';
@@ -1524,7 +1844,9 @@ function moveDlg(id,type){
   b += '<div class="f"><label>'+(type==="adj"?"실제 재고 수량":"수량")+' ('+esc(i.unit||"단위")+')</label>'
     + '<input type="number" step="any" id="mQ" inputmode="decimal" value="'+(type==="adj"?num(i.stock):"")+'" autofocus></div>';
   if(type==="in") b += '<div class="grid2"><div class="f"><label>총 결제금액 (원, 선택)</label><input type="number" id="mA" placeholder="입력 시 단가 자동 갱신"></div>'
-    + '<div class="f"><label>날짜</label><input type="date" id="mD" value="'+today()+'"></div></div>';
+    + '<div class="f"><label>날짜</label><input type="date" id="mD" value="'+today()+'"></div></div>'
+    + '<div class="f"><label>유통기한 (선택)</label><input type="date" id="mE" value="'+esc(i.exp||"")+'">'
+    + '<div class="muted" style="margin-top:5px">넣어두면 임박할 때 홈 화면에 알려드려요</div></div>';
   else b += '<div class="f"><label>날짜</label><input type="date" id="mD" value="'+today()+'"></div>';
   b += '<div class="f"><label>메모</label><input id="mM" placeholder="'+(type==="out"?"폐기 사유 / 사용처":"거래처 / 비고")+'"></div>'
     + '<button class="btn full '+(type==="in"?"ok":"")+'" onclick="doMove(\''+id+'\',\''+type+'\')">'+t+' 기록</button>';
@@ -1540,6 +1862,7 @@ function doMove(id,type){
   let logQty=q, amt=0;
   if(type==="in"){
     const aEl=document.getElementById("mA"); amt=num(aEl?aEl.value:0);
+    const eEl=document.getElementById("mE"); if(eEl) i.exp = eEl.value;
     i.stock = num(i.stock)+q;
     if(amt>0 && q>0) i.price = Math.round(amt/q);
   } else if(type==="out"){
@@ -1596,28 +1919,39 @@ function delItem(id){
   data.recipes.forEach(function(r){ (r.ings||[]).forEach(function(g){ if(g.sid===id) g.sid=""; }); });
   save(); closeSheet(); render();
 }
+function copyVendorOrder(v){
+  const t = (window.ORDER_BY_VENDOR||{})[v];
+  if(t) copyTxt(t); else toast("발주 내용이 없어요");
+}
 function orderSheet(){
   const low = data.stock.filter(isLow);
   if(!low.length){ toast("발주가 필요한 자재가 없어요"); return; }
   const byV={};
   low.forEach(function(i){ const v=i.vendor||"거래처 미지정"; (byV[v]=byV[v]||[]).push(i); });
   let t = "📦 "+(data.settings.store||"")+" 발주 요청 ("+dLabel(today())+")\n";
-  let b = '<div class="card"><div class="sec-t">발주 필요 '+low.length+'개</div>';
+  let b = '<div class="card tight"><div class="muted">거래처별로 따로 복사해서 카톡에 붙여넣으세요</div></div>';
+  window.ORDER_BY_VENDOR = {};
   for(const v in byV){
+    let vt = "["+(data.settings.store||"")+"] 발주 요청 ("+dLabel(today())+")\n";
     t += "\n["+v+"]\n";
-    b += '<div style="font-weight:800;margin:10px 0 4px">'+esc(v)+'</div>';
+    b += '<div class="card"><div class="row" style="margin-bottom:4px">'
+      + '<div class="sec-t sp" style="margin:0">'+esc(v)+' ('+byV[v].length+')</div>'
+      + '<button class="btn xs" onclick="copyVendorOrder(\''+jsq(v)+'\')">📋 복사</button></div>';
     byV[v].forEach(function(i){
       const need = Math.max(num(i.min)*2 - num(i.stock), num(i.min));
       const rec = Math.ceil(need*10)/10;
-      t += "· "+i.name+" — 현재 "+num(i.stock)+(i.unit||"")+" / 권장 주문 "+rec+(i.unit||"")+"\n";
+      const line = "· "+i.name+" "+rec+(i.unit||"")+" (현재 "+num(i.stock)+(i.unit||"")+")";
+      t += line+"\n"; vt += line+"\n";
       b += '<div class="li"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
         + '<div class="li-s">현재 '+num(i.stock)+esc(i.unit||"")+' · 최소 '+num(i.min)+esc(i.unit||"")+'</div></div>'
         + '<span class="bdg bad">'+rec+esc(i.unit||"")+' 주문</span></div>';
     });
+    b += '</div>';
+    window.ORDER_BY_VENDOR[v] = vt.trim();
   }
-  b += '</div><button class="btn full" onclick="copyTxt(ORDER_TXT)">📋 발주서 복사 (카톡 붙여넣기)</button>';
-  window.ORDER_TXT = t;
-  sheet("발주서", b);
+  b += '<button class="btn g full" onclick="copyTxt(ORDER_TXT)">📋 전체 발주서 복사</button>';
+  window.ORDER_TXT = t.trim();
+  sheet("발주서 ("+low.length+"개)", b);
 }
 </script>
 <script>

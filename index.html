@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23n";
+const APP_VER    = "2026-08-23p";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1795,6 +1795,28 @@ function isLow(i){ return num(i.min)>0 && num(i.stock) <= num(i.min); }
 
 /* ═══ 재고 실사 · 최소보유량 일괄 입력 ═══ */
 let bulkMode = "stock";   // stock | min | exp
+let bulkOnlyEmpty = false;
+
+/* 유통기한 빠른 입력 — 오늘부터 며칠 뒤로 채움 */
+function expQuick(bid, days){
+  const el = document.querySelector('#shBody [data-bid="'+bid+'"]');
+  if(!el) return;
+  if(days===null){ el.value=""; }
+  else { const d=new Date(); d.setDate(d.getDate()+days); el.value=dateKey(d); }
+}
+function expQuickFor(elId, days){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  if(days===null){ el.value=""; }
+  else { const d=new Date(); d.setDate(d.getDate()+days); el.value=dateKey(d); }
+}
+function expQuickChips(elId){
+  return '<div class="chips wrap" style="margin-top:7px">'
+    + [[7,"+7일"],[14,"+2주"],[30,"+1개월"],[90,"+3개월"],[180,"+6개월"]].map(function(q){
+        return '<button class="chip" onclick="expQuickFor(\''+elId+'\','+q[0]+')">'+q[1]+'</button>';
+      }).join("")
+    + '<button class="chip" onclick="expQuickFor(\''+elId+'\',null)">지움</button></div>';
+}
 function bulkSheet(mode){
   bulkMode = mode || "stock";
   const title = {stock:"재고 실사 (한 번에 입력)", min:"최소 보유량 한 번에 설정", exp:"유통기한 한 번에 입력"}[bulkMode];
@@ -1808,26 +1830,43 @@ function bulkSheet(mode){
        exp:"가장 임박한 유통기한을 적으세요. 임박하면 홈에 알림이 뜹니다."}[bulkMode]
     + '</div></div>';
 
+  if(bulkMode==="exp"){
+    b += '<div class="row" style="margin-bottom:10px"><div class="muted sp">보기</div>'
+      + '<button class="chip '+(bulkOnlyEmpty?"":"on")+'" onclick="bulkOnlyEmpty=false;bulkSheet(\'exp\')">전체</button>'
+      + '<button class="chip '+(bulkOnlyEmpty?"on":"")+'" onclick="bulkOnlyEmpty=true;bulkSheet(\'exp\')">미입력만</button></div>';
+  }
+  let list = data.stock.slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||"","ko"); });
+  if(bulkMode==="exp" && bulkOnlyEmpty) list = list.filter(function(i){ return !i.exp; });
+
   const groups={}, order=[];
-  data.stock.slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||"","ko"); })
-    .forEach(function(i){
-      const g=i.cat||"기타";
-      if(!groups[g]){ groups[g]=[]; order.push(g); }
-      groups[g].push(i);
-    });
+  list.forEach(function(i){
+    const g=i.cat||"기타";
+    if(!groups[g]){ groups[g]=[]; order.push(g); }
+    groups[g].push(i);
+  });
   order.sort(function(a,b){ return a.localeCompare(b,"ko"); });
+  if(!order.length) b += '<div class="card"><div class="empty">해당하는 자재가 없어요</div></div>';
   order.forEach(function(g){
     b += '<div class="card"><div class="sec-t">'+esc(g)+' ('+groups[g].length+')</div>';
     groups[g].forEach(function(i){
-      const val = bulkMode==="stock"? num(i.stock) : bulkMode==="min"? num(i.min) : (i.exp||"");
-      b += '<div class="li"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
-        + '<div class="li-s">'+(bulkMode==="exp"
-            ? '재고 '+num(i.stock)+esc(i.unit||"")
-            : '현재 '+num(i.stock)+esc(i.unit||"")+(num(i.min)?' / 최소 '+num(i.min):''))+'</div></div>'
-        + (bulkMode==="exp"
-            ? '<input type="date" data-bid="'+i.id+'" value="'+esc(val)+'" style="width:150px">'
-            : '<input type="number" step="any" inputmode="decimal" data-bid="'+i.id+'" value="'+val+'" style="width:88px;text-align:right">')
-        + '</div>';
+      if(bulkMode==="exp"){
+        b += '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'
+          + '<div class="row"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
+          + '<div class="li-s">재고 '+num(i.stock)+esc(i.unit||"")
+          + (i.exp?' · 현재 '+esc(i.exp)+' ('+expLabel(i.exp)+')':'')+'</div></div>'
+          + '<input type="date" data-bid="'+i.id+'" value="'+esc(i.exp||"")+'" style="width:145px"></div>'
+          + '<div class="chips wrap" style="margin-top:7px">'
+          + [[7,"+7일"],[14,"+2주"],[30,"+1개월"],[90,"+3개월"],[180,"+6개월"]].map(function(q){
+              return '<button class="chip" onclick="expQuick(\''+i.id+'\','+q[0]+')">'+q[1]+'</button>';
+            }).join("")
+          + '<button class="chip" onclick="expQuick(\''+i.id+'\',null)">지움</button></div></div>';
+      } else {
+        const val = bulkMode==="stock"? num(i.stock) : num(i.min);
+        b += '<div class="li"><div class="sp"><div class="li-t">'+esc(i.name)+'</div>'
+          + '<div class="li-s">현재 '+num(i.stock)+esc(i.unit||"")+(num(i.min)?' / 최소 '+num(i.min):'')+'</div></div>'
+          + '<input type="number" step="any" inputmode="decimal" data-bid="'+i.id+'" value="'+val+'" style="width:88px;text-align:right">'
+          + '</div>';
+      }
     });
     b += '</div>';
   });
@@ -1893,9 +1932,10 @@ function viewStock(){
   html += '<div class="row" style="margin-bottom:10px">'
     + '<input class="sp" placeholder="🔍 자재 검색" value="'+esc(stockQ)+'" oninput="stockQ=this.value;renderStockList()">'
     + '<button class="btn sm" onclick="editItem(null)">+ 추가</button></div>'
-    + '<div class="grid2" style="margin-bottom:10px">'
+    + '<div class="'+(isMgr()?"grid3":"grid2")+'" style="margin-bottom:10px">'
     + '<button class="btn g sm" onclick="bulkSheet(\'stock\')">📐 재고 실사</button>'
-    + (isMgr()? '<button class="btn g sm" onclick="bulkSheet(\'min\')">⚠️ 최소보유 설정</button>':'<span></span>')+'</div>'
+    + '<button class="btn g sm" onclick="bulkSheet(\'exp\')">📅 유통기한</button>'
+    + (isMgr()? '<button class="btn g sm" onclick="bulkSheet(\'min\')">⚠️ 최소보유</button>':'')+'</div>'
     + '<div class="row" style="margin-bottom:8px"><div class="muted sp">정렬</div>'
     + [["low","부족 먼저"],["name","가나다"],["cat","분류별"]].map(function(s){
         return '<button class="chip '+(stockSort===s[0]?"on":"")+'" onclick="stockSort=\''+s[0]+'\';render()">'+s[1]+'</button>';
@@ -1941,7 +1981,7 @@ function stockListHtml(){
       + '<div class="li-s">재고 <b>'+num(i.stock)+esc(i.unit||"")+'</b>'
       + (num(i.min)?' / 최소 '+num(i.min)+esc(i.unit||""):'')
       + (canCost()&&num(i.price)?' · '+won(num(i.price))+'/'+esc(i.unit||"단위"):'')
-      + (i.vendor?' · '+esc(i.vendor):'')+'</div></div>'
+      + (i.vendor?' · '+esc(i.vendor):'')+(i.exp?' · 📅 '+esc(i.exp)+' <span class="bdg '+(i.exp<today()?'bad':expLabel(i.exp).indexOf('D-')===0&&parseInt(expLabel(i.exp).slice(2))<=7?'warn':'')+'">'+expLabel(i.exp)+'</span>':'')+'</div></div>'
       + '<button class="btn xs ok" onclick="moveDlg(\''+i.id+'\',\'in\')">+입고</button>'
       + '<button class="btn xs g" onclick="moveDlg(\''+i.id+'\',\'out\')">-사용</button></div>';
   });
@@ -2016,7 +2056,8 @@ function moveDlg(id,type){
   if(type==="in") b += '<div class="grid2"><div class="f"><label>총 결제금액 (원, 선택)</label><input type="number" id="mA" placeholder="입력 시 단가 자동 갱신"></div>'
     + '<div class="f"><label>날짜</label><input type="date" id="mD" value="'+today()+'"></div></div>'
     + '<div class="f"><label>유통기한 (선택)</label><input type="date" id="mE" value="'+esc(i.exp||"")+'">'
-    + '<div class="muted" style="margin-top:5px">넣어두면 임박할 때 홈 화면에 알려드려요</div></div>';
+    + expQuickChips("mE")
+    + '<div class="muted" style="margin-top:5px">버튼을 누르면 오늘부터 계산해서 채워져요. 임박하면 홈에 알림이 떠요</div></div>';
   else b += '<div class="f"><label>날짜</label><input type="date" id="mD" value="'+today()+'"></div>';
   b += '<div class="f"><label>메모</label><input id="mM" placeholder="'+(type==="out"?"폐기 사유 / 사용처":"거래처 / 비고")+'"></div>'
     + '<button class="btn full '+(type==="in"?"ok":"")+'" onclick="doMove(\''+id+'\',\''+type+'\')">'+t+' 기록</button>';
@@ -2061,6 +2102,8 @@ function editItem(id){
         + vendors().map(function(v){ return '<button class="btn xs g" onclick="setVendor(\''+jsq(v)+'\')">'+esc(v)+'</button>'; }).join("")
         + '</div>' : '<div class="muted" style="margin-top:5px">한 번 입력해두면 다음부터는 눌러서 고를 수 있어요</div>')
     + '</div>'
+    + '<div class="f"><label>유통기한 (선택)</label><input type="date" id="iE" value="'+(i?esc(i.exp||""):"")+'">'
+    + expQuickChips("iE")+'</div>'
     + '<div class="f"><label>메모</label><input id="iMemo" value="'+(i?esc(i.memo):"")+'" placeholder="보관 위치 / 규격"></div>'
     + '<div class="muted" style="margin-bottom:12px">💡 최소 보유량을 넣으면 재고가 그 아래로 떨어질 때 자동으로 발주 알림이 떠요.</div>'
     + '<button class="btn full" onclick="saveItem(\''+(id||"")+'\')">저장</button>'
@@ -2080,6 +2123,7 @@ function saveItem(id){
   i.min=num(document.getElementById("iM").value);
   i.price=num(document.getElementById("iP").value);
   i.vendor=document.getElementById("iV").value.trim();
+  const _e=document.getElementById("iE"); if(_e) i.exp=_e.value;
   i.memo=document.getElementById("iMemo").value;
   save(); closeSheet(); render(); toast("저장했어요 ✓");
 }

@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23j";
+const APP_VER    = "2026-08-23k";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -289,7 +289,8 @@ if(!CLIENT_ID){ CLIENT_ID = "c"+Math.random().toString(36).slice(2,9); lsSet("sm
 
 /* 이 기기의 사용자 / 권한 */
 let meId   = lsGet("sm-me") || "";
-let myRole = lsGet("sm-role") || "admin";   // admin | staff
+/* 기본은 '직원'. 관리자는 팀을 처음 만든 기기이거나, 핀번호로 직접 전환한 기기만 */
+let myRole = lsGet("sm-role") || "staff";   // admin | staff
 
 /* 화면 상태 */
 let tab = "home";
@@ -690,6 +691,14 @@ function viewHome(){
   const hall = chkProgress("hall","daily",t), kit = chkProgress("kitchen","daily",t);
   const m = monthKey(new Date());
   let html = "";
+
+  /* 관리자 핀이 기본값이면 경고 */
+  if(isAdmin() && String(data.settings.adminPin||"1234")==="1234"){
+    html += '<div class="card" style="border-color:#f5c6c2;background:var(--bad-soft)">'
+         +  '<div class="row"><div class="sp"><div class="li-t">🔑 관리자 핀이 기본값(1234)이에요</div>'
+         +  '<div class="li-s" style="margin-top:3px">직원이 1234를 넣으면 급여까지 볼 수 있어요. 지금 바꿔주세요.</div></div>'
+         +  '<button class="btn sm bad" onclick="openSettings()">변경</button></div></div>';
+  }
 
   /* 저장이 안 되는 브라우저 경고 */
   if(!LS_OK){
@@ -1581,7 +1590,7 @@ function editRecipe(id, preset){
     + '<button class="btn xs g" onclick="addStep()">+ 단계</button></div><div id="stepBox"></div></div>'
     + '<div class="f"><label>💡 포인트 · 주의사항</label><textarea id="cT" placeholder="불 세기, 간 맞추는 팁, 보관법 등">'+(r?esc(r.tip):"")+'</textarea></div>'
     + '<button class="btn full" onclick="saveRecipe()">저장</button>'
-    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delRecipe(\''+id+'\')">삭제</button>':'');
+    + ((id&&isAdmin())? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delRecipe(\''+id+'\')">삭제</button>':'');
   sheet(id?"레시피 수정":"새 레시피", b);
   drawCats(); drawFavs(); drawIngs(); drawSteps();
 }
@@ -2028,7 +2037,7 @@ function editItem(id){
     + '<div class="f"><label>메모</label><input id="iMemo" value="'+(i?esc(i.memo):"")+'" placeholder="보관 위치 / 규격"></div>'
     + '<div class="muted" style="margin-bottom:12px">💡 최소 보유량을 넣으면 재고가 그 아래로 떨어질 때 자동으로 발주 알림이 떠요.</div>'
     + '<button class="btn full" onclick="saveItem(\''+(id||"")+'\')">저장</button>'
-    + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delItem(\''+id+'\')">삭제</button>':'');
+    + ((id&&isAdmin())? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delItem(\''+id+'\')">삭제</button>':'');
   sheet(id?"자재 수정":"자재 추가", b);
   drawItemCats();
 }
@@ -2274,14 +2283,15 @@ function openSettings(){
         ? '<div class="li"><div class="sp"><div class="li-t" style="font-family:monospace">'+esc(TEAM_ID)+'</div>'
           + '<div class="li-s">이 코드를 넣은 기기끼리 실시간으로 공유돼요</div></div>'
           + '<button class="btn xs g" onclick="copyTxt(TEAM_ID)">복사</button></div>'
-          + (inviteLink()? '<button class="btn full sm" style="margin-top:10px" onclick="copyTxt(inviteLink())">🔗 직원 초대 링크 복사</button>'
+          + (isAdmin()&&inviteLink()? '<button class="btn full sm" style="margin-top:10px" onclick="copyTxt(inviteLink())">🔗 직원 초대 링크 복사</button>'
               + '<div class="muted" style="margin-top:6px">이 링크로 열면 코드 입력 없이 바로 연결돼요 (카톡으로 전달)</div>':'')
-          + '<button class="btn g full sm" style="margin-top:10px" onclick="openTeamGate()">팀 코드 변경 / 다시 연결</button>'
+          + (isAdmin()? '<button class="btn g full sm" style="margin-top:10px" onclick="openTeamGate()">팀 코드 변경 / 다시 연결</button>' : '')
           + '<div class="muted" style="margin-top:8px">⚠️ 코드를 아는 사람은 급여까지 볼 수 있어요. 직원에게만 알려주세요.</div>'
         : '<div class="muted" style="margin-bottom:10px">아직 팀 코드가 없어요. 지금은 이 기기에만 저장됩니다.</div>'
           + '<button class="btn full sm" onclick="openTeamGate()">팀 코드 설정하기</button>')
     + '</div>';
-  const snap = snapInfo();
+  const snap = isAdmin()? snapInfo() : null;
+  if(isAdmin())
   b += '<div class="card"><div class="sec-t">💾 백업</div>'
     + '<div class="grid2" style="margin-top:2px">'
     + '<button class="btn g sm" onclick="backup()">💾 백업 파일</button>'
@@ -2298,7 +2308,8 @@ function openSettings(){
     + (LS_OK?'':' · ⚠️ 저장 불가 브라우저')+'</div>'
     + '<button class="btn xs g" onclick="hardReload()">최신으로 갱신</button></div></div>';
   b += '<button class="btn full" onclick="saveSettings()">저장</button>';
-  b += '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="resetAll()">전체 데이터 초기화</button>';
+  if(isAdmin())
+    b += '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="resetAll()">전체 데이터 초기화</button>';
   sheet("설정", b);
 }
 /* ═══ 팀 코드 연결 ═══ */
@@ -2311,14 +2322,18 @@ function openTeamGate(){
     + '<div class="f"><input id="tCode" lang="en" autocapitalize="off" autocorrect="off" spellcheck="false" '
     + 'placeholder="store-xxxxxxxxxx" value="'+esc(TEAM_ID)+'"></div>'
     + '<button class="btn full ok" onclick="joinTeam()">연결하기</button>'
-    + '<div class="muted" style="margin-top:9px">⚠️ 연결하면 이 기기의 내용이 팀 자료로 바뀝니다.</div></div>'
-    + '<button class="btn g full" onclick="closeSheet()">나중에 (이 기기에만 저장)</button>';
+    + '<div class="muted" style="margin-top:9px">연결하면 이 기기는 <b>직원 모드</b>로 열립니다 (급여·단가 비공개).</div></div>'
+    + '<button class="btn g full" onclick="closeSheet()">나중에 하기 (공유 안 함)</button>'
+    + '<div class="muted" style="margin-top:8px;text-align:center">사장님은 설정 → 나/권한에서 관리자로 전환할 수 있어요</div>';
   sheet("팀 코드", b);
 }
 function makeTeam(){
   const c = newTeamCode();
-  if(!confirm("새 팀 코드를 만들까요?\n\n"+c+"\n\n직원 폰에서 이 코드를 입력하면 자료가 공유돼요.")) return;
-  if(setTeam(c)){ closeSheet(); toast("팀 코드 생성 ✓"); setTimeout(openSettings,300); }
+  if(!confirm("새 팀 코드를 만들까요?\n\n"+c+"\n\n이 기기가 사장님(관리자) 기기가 되고,\n직원 폰은 초대 링크로 연결하면 직원 모드로 열립니다.")) return;
+  if(setTeam(c)){
+    myRole="admin"; lsSet("sm-role","admin");      /* 팀을 만든 기기 = 관리자 */
+    closeSheet(); toast("팀 생성 ✓ 이 기기는 관리자예요"); setTimeout(openSettings,300);
+  }
 }
 function joinTeam(){
   const v = document.getElementById("tCode").value;

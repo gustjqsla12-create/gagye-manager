@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26b";
+const APP_VER    = "2026-08-26c";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1506,9 +1506,12 @@ function showRecipe(id){
   const r = recipeById(id); if(!r) return;
   let b = '<div class="card"><div class="row top"><div class="sp">'
     + '<div style="font-size:18px;font-weight:800">'+esc(r.name)+'</div>'
-    + '<div class="li-s">'+(r.cat?'<span class="bdg br">'+esc(r.cat)+'</span> ':'')+(r.yield?esc(r.yield):'')+'</div></div></div></div>';
+    + '<div class="li-s">'+(r.cat?'<span class="bdg br">'+esc(r.cat)+'</span> ':'')+(r.yield?esc(r.yield):'')+'</div></div>'
+    + (canRecipe()?'<button class="btn sm" onclick="editRecipe(\''+r.id+'\')">✏️ 수정</button>':'')
+    + '</div></div>';
 
-  b += '<div class="card"><div class="sec-t">🥕 재료</div>';
+  b += '<div class="card"><div class="row" style="margin-bottom:6px"><div class="sec-t sp" style="margin:0">🥕 재료</div>'
+    + (canRecipe()?'<button class="btn xs g" onclick="editRecipe(\''+r.id+'\')">✏️ 재료 고치기</button>':'')+'</div>';
   if(!(r.ings||[]).length) b += '<div class="muted">등록된 재료가 없어요</div>';
   (r.ings||[]).forEach(function(g){
     const it = g.sid? stockById(g.sid):null;
@@ -1522,14 +1525,21 @@ function showRecipe(id){
   });
   b += '</div>';
 
-  b += '<div class="card"><div class="sec-t">👨‍🍳 조리 순서</div>';
+  b += '<div class="card"><div class="row" style="margin-bottom:6px"><div class="sec-t sp" style="margin:0">👨‍🍳 조리 순서</div>'
+    + (canRecipe()?'<span class="muted">단계를 눌러 수정</span>':'')+'</div>';
   if(!(r.steps||[]).length) b += '<div class="muted">등록된 순서가 없어요</div>';
   (r.steps||[]).forEach(function(s,i){
-    b += '<div class="step"><div class="step-n">'+(i+1)+'</div><div class="sp">'+esc(s).replace(/\n/g,"<br>")+'</div></div>';
+    b += '<div class="step" '+(canRecipe()?'onclick="editStepQuick(\''+r.id+'\','+i+')"':'')+'>'
+      + '<div class="step-n">'+(i+1)+'</div><div class="sp">'+esc(s).replace(/\n/g,"<br>")+'</div>'
+      + (canRecipe()?'<span class="muted">✏️</span>':'')+'</div>';
   });
+  if(canRecipe()) b += '<button class="btn g full sm" style="margin-top:9px" onclick="addStepQuick(\''+r.id+'\')">+ 단계 추가</button>';
   b += '</div>';
 
-  if(r.tip) b += '<div class="card"><div class="sec-t">💡 포인트 · 주의</div><div>'+esc(r.tip).replace(/\n/g,"<br>")+'</div></div>';
+  if(r.tip || canRecipe())
+    b += '<div class="card"><div class="row" style="margin-bottom:6px"><div class="sec-t sp" style="margin:0">💡 포인트 · 주의</div>'
+      + (canRecipe()?'<button class="btn xs g" onclick="editTipQuick(\''+r.id+'\')">✏️</button>':'')+'</div>'
+      + '<div>'+(r.tip? esc(r.tip).replace(/\n/g,"<br>") : '<span class="muted">아직 없어요</span>')+'</div></div>';
 
   b += '<button class="btn g full sm" style="margin-bottom:9px" onclick="dupRecipe(\''+r.id+'\')">📄 이 레시피로 새로 만들기 (복제)</button>'
     + '<div class="grid3"><button class="btn g" onclick="copyRecipe(\''+r.id+'\')">📋 복사</button>'
@@ -1537,6 +1547,58 @@ function showRecipe(id){
     + '<button class="btn" onclick="editRecipe(\''+r.id+'\')">✏️ 수정</button></div>'
     + '<div class="muted" style="text-align:center;margin-top:10px">'+(r.by?'작성 '+esc(r.by)+' · ':'')+(r.updated||"")+'</div>';
   sheet("레시피", b);
+}
+/* ═══ 부분 수정 (레시피 전체 편집 없이 한 군데만) ═══ */
+function editStepQuick(id, i){
+  const r=recipeById(id); if(!r) return;
+  const cur=(r.steps||[])[i]; if(cur===undefined) return;
+  const b = '<div class="card tight"><div class="muted">'+esc(r.name)+' · '+(i+1)+'번째 단계</div></div>'
+    + '<div class="f"><label>조리 내용</label><textarea id="sqT" style="min-height:90px">'+esc(cur)+'</textarea></div>'
+    + '<div class="grid2" style="margin-bottom:10px">'
+    + '<button class="btn g sm" '+(i===0?'style="opacity:.4"':'')+' onclick="moveStepQuick(\''+id+'\','+i+',-1)">↑ 위로</button>'
+    + '<button class="btn g sm" '+(i===r.steps.length-1?'style="opacity:.4"':'')+' onclick="moveStepQuick(\''+id+'\','+i+',1)">↓ 아래로</button></div>'
+    + '<button class="btn full" onclick="saveStepQuick(\''+id+'\','+i+')">저장</button>'
+    + '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delStepQuick(\''+id+'\','+i+')">이 단계 삭제</button>';
+  sheet("단계 수정", b);
+}
+function saveStepQuick(id,i){
+  const r=recipeById(id); if(!r) return;
+  const v=(document.getElementById("sqT")||{}).value||"";
+  if(!v.trim()){ toast("내용을 입력하세요"); return; }
+  r.steps[i]=v.trim(); r.updated=today(); r.by=meName();
+  save(); showRecipe(id); toast("수정했어요 ✓");
+}
+function moveStepQuick(id,i,d){
+  const r=recipeById(id); if(!r) return;
+  const j=i+d; if(j<0||j>=r.steps.length) return;
+  const t=r.steps[i]; r.steps[i]=r.steps[j]; r.steps[j]=t;
+  r.updated=today(); save(); editStepQuick(id,j);
+}
+function delStepQuick(id,i){
+  const r=recipeById(id); if(!r) return;
+  if(!confirm((i+1)+"번째 단계를 삭제할까요?")) return;
+  r.steps.splice(i,1); r.updated=today();
+  save(); showRecipe(id); toast("삭제했어요");
+}
+function addStepQuick(id){
+  const r=recipeById(id); if(!r) return;
+  const v=prompt("추가할 조리 단계를 입력하세요");
+  if(v===null || !v.trim()) return;
+  r.steps=(r.steps||[]).concat(v.trim()); r.updated=today(); r.by=meName();
+  save(); showRecipe(id); toast("단계를 추가했어요 ✓");
+}
+function editTipQuick(id){
+  const r=recipeById(id); if(!r) return;
+  const b = '<div class="f"><label>포인트 · 주의사항</label>'
+    + '<textarea id="tqT" style="min-height:110px" placeholder="불 세기, 간 맞추는 팁, 보관법 등">'+esc(r.tip||"")+'</textarea></div>'
+    + '<button class="btn full" onclick="saveTipQuick(\''+id+'\')">저장</button>';
+  sheet("포인트 수정", b);
+}
+function saveTipQuick(id){
+  const r=recipeById(id); if(!r) return;
+  r.tip=(document.getElementById("tqT")||{}).value||"";
+  r.updated=today(); r.by=meName();
+  save(); showRecipe(id); toast("저장했어요 ✓");
 }
 function dupRecipe(id){
   const r=recipeById(id); if(!r) return;

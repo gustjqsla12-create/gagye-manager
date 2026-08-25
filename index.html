@@ -193,7 +193,7 @@ nav button.on{color:var(--brand)}
   <div class="hd-row">
     <div class="hd-title" id="hdTitle">🍢 가게관리</div>
     <button class="hd-btn" id="meBtn" onclick="openMe()">👤 나</button>
-    <button class="hd-btn" onclick="openSettings()">⚙️</button>
+    <button class="hd-btn" id="setBtn" onclick="openSettings()">⚙️</button>
   </div>
   <div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">연결 중…</span></div>
 </header>
@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-23p";
+const APP_VER    = "2026-08-24a";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -387,6 +387,35 @@ function isMgr(){   return myLvl >= 2; }   /* 단가·근무기록 수정·스�
 function canRecipe(){ return myLvl >= 1; } /* 레시피 열람·작성 */
 function canCost(){   return myLvl >= 2; } /* 매입 단가·재고 금액 */
 function myLvlName(){ return ["홀","주방","매니저","관리자"][myLvl] || "홀"; }
+
+/* ═══ 로그인 ═══
+   비밀번호는 그대로 저장하지 않고 변환값(해시)만 보관합니다. */
+function pwHash(id, pw){
+  const s = "sm:"+String(id)+":"+String(pw);
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for(let i=0;i<s.length;i++){
+    const c = s.charCodeAt(i);
+    h1 = ((h1 ^ c) >>> 0); h1 = (Math.imul(h1, 16777619) >>> 0);
+    h2 = ((h2 + c*(i+7)) >>> 0); h2 = (Math.imul(h2, 2246822519) >>> 0);
+  }
+  return h1.toString(36)+"-"+h2.toString(36);
+}
+function hasPw(s){ return !!(s && s.pwh); }
+function checkPw(s, pw){ return !!(s && s.pwh && s.pwh === pwHash(s.id, pw)); }
+function isLoggedIn(){
+  if(lsGet("sm-auth") !== "1") return false;
+  if(meId) return !!staffById(meId);
+  return myLvl >= 3;                       /* 관리자 핀으로 들어온 경우 */
+}
+function loginDone(id, lv){
+  if(id){ meId=id; lsSet("sm-me", id); } else { meId=""; lsDel("sm-me"); }
+  setLvl(lv); lsSet("sm-auth","1");
+}
+function logout(){
+  lsDel("sm-auth"); lsDel("sm-me"); meId=""; setLvl(0);
+  tab="home"; workSub="punch"; closeSheet(); render();
+  toast("로그아웃했어요");
+}
 function deptLabel(d){ return {hall:"홀",kitchen:"주방",both:"홀+주방"}[d||"hall"]; }
 
 /* ═══ 저장 / 동기화 ═══ */
@@ -634,12 +663,10 @@ function openRec(staffId){
   }
   return null;
 }
+/* 본인 것은 그냥, 남의 것은 매니저 이상만 */
 function askPin(staff, cb){
-  if(isMgr() || !staff.pin){ cb(); return; }
-  const v = prompt(staff.name+" 님의 4자리 핀번호를 입력하세요");
-  if(v===null) return;
-  if(String(v).trim() !== String(staff.pin)){ toast("핀번호가 틀려요 ✕"); return; }
-  cb();
+  if(staff.id === meId || isMgr()){ cb(); return; }
+  toast("본인 것만 찍을 수 있어요 (대신 찍기는 매니저 이상)");
 }
 function punchIn(staffId){
   const s = staffById(staffId); if(!s) return;
@@ -664,13 +691,29 @@ function punchOut(staffId){
 /* ═══════════════ 라우터 ═══════════════ */
 function go(t){ tab=t; window.scrollTo(0,0); render(); }
 function render(){
-  const nv = document.getElementById("nav").querySelectorAll("button");
+  const nav = document.getElementById("nav");
+  const v0  = document.getElementById("view");
+  document.getElementById("hdTitle").textContent = "🍢 "+(data.settings.store||"가게관리");
+
+  /* 로그인 전에는 로그인 화면만 */
+  if(!isLoggedIn()){
+    nav.style.display = "none";
+    document.getElementById("meBtn").style.display = "none";
+    document.getElementById("setBtn").style.display = "none";
+    v0.innerHTML = viewLogin();
+    markKorean(v0); paintSync();
+    return;
+  }
+  nav.style.display = "";
+  document.getElementById("meBtn").style.display = "";
+  document.getElementById("setBtn").style.display = "";
+
+  const nv = nav.querySelectorAll("button");
   if(tab==="recipe" && !canRecipe()) tab="home";
   for(let i=0;i<nv.length;i++){
     nv[i].classList.toggle("on", nv[i].dataset.tab===tab);
     if(nv[i].dataset.tab==="recipe") nv[i].style.display = canRecipe()? "" : "none";
   }
-  document.getElementById("hdTitle").textContent = "🍢 "+(data.settings.store||"가게관리");
   document.getElementById("meBtn").textContent = "👤 "+(meName()||"이름설정");
   const v = document.getElementById("view");
   if(tab==="home")   v.innerHTML = viewHome();
@@ -1305,6 +1348,10 @@ function editStaff(id){
     + '<div class="muted" style="margin-top:5px">🔒 매니저·관리자는 본인 핀번호(없으면 관리자 핀)를 넣어야 그 권한으로 들어갈 수 있어요.</div></div>'
     + '<div class="f"><label>메모</label><input id="sMemo" value="'+(s?esc(s.memo):"")+'" placeholder="입사일 / 비고"></div>'
     + (s? '<div class="f"><label>재직 상태</label><select id="sA"><option value="1" '+(s.active===false?"":"selected")+'>재직</option><option value="0" '+(s.active===false?"selected":"")+'>퇴사</option></select></div>':'')
+    + (s? '<div class="card tight"><div class="row"><div class="sp"><div class="li-t">🔒 로그인 비밀번호</div>'
+        + '<div class="li-s">'+(hasPw(s)? "설정됨 — 본인만 알아요" : "아직 없음 (첫 로그인 때 본인이 만듭니다)")+'</div></div>'
+        + (hasPw(s)? '<button class="btn xs g" onclick="resetPw(\''+s.id+'\')">초기화</button>':'')
+        + '</div></div>' : '')
     + '<button class="btn full" onclick="saveStaff(\''+(id||"")+'\')">저장</button>'
     + (id? '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delStaff(\''+id+'\')">삭제</button>':'');
   sheet(id?"직원 정보 수정":"직원 추가", b);
@@ -2298,27 +2345,14 @@ function markKorean(root){
 function closeSheet(){ document.getElementById("mask").classList.remove("on"); }
 
 function openMe(){
-  let b = '<div class="card"><div class="sec-t">👤 이 기기를 쓰는 사람</div>';
-  if(!data.staff.length) b += '<div class="muted" style="margin-bottom:10px">등록된 직원이 없어요. 아래에서 바로 추가하세요.</div>';
-  data.staff.filter(function(s){ return s.active!==false; }).forEach(function(s){
-    const r=roleOf(s), lv=roleLv(r);
-    b += '<div class="li" onclick="setMe(\''+s.id+'\')"><div class="sp"><div class="li-t">'+esc(s.name)
-      + ' <span class="bdg '+(lv>=2?"br":lv>=1?"blue":"")+'">'+roleName(r)+'</span>'
-      + (lv>=2?' 🔒':'')+'</div>'
-      + '<div class="li-s">'+ROLES[r].d+'</div></div>'
-      + (meId===s.id?'<span class="bdg ok">선택됨</span>':'<span class="bdg">선택</span>')+'</div>';
-  });
-  b += '<button class="btn g full sm" style="margin-top:10px" onclick="closeSheet();editStaff(null)">+ 직원 추가</button></div>';
-
-  b += '<div class="card"><div class="sec-t">🔑 이 기기 권한</div>'
-    + '<div class="li"><div class="sp"><div class="li-t">'+myLvlName()
-    + ' <span class="bdg '+(myLvl>=2?"br":myLvl>=1?"blue":"")+'">단계 '+myLvl+'</span></div>'
-    + '<div class="li-s">'+ROLES[["hall","kitchen","manager","admin"][myLvl]].d+'</div></div>'
-    + (myLvl>0? '<button class="btn xs g" onclick="setLvl(0);closeSheet();render();toast(\'홀 권한으로 낮췄어요\')">권한 내리기</button>':'')
-    + '</div>'
-    + '<button class="btn g full sm" style="margin-top:9px" onclick="raiseLvl()">🔒 매니저·관리자로 전환 (핀 입력)</button>'
-    + '<div class="muted" style="margin-top:8px">이름을 고르면 그 사람의 역할대로 권한이 정해져요. '
-    + '매니저·관리자는 핀번호를 넣어야 들어갑니다.</div></div>';
+  const me = staffById(meId);
+  let b = '<div class="card"><div class="sec-t">👤 로그인 정보</div>'
+    + '<div class="li"><div class="sp"><div class="li-t">'+esc(me? me.name : "관리자 (핀 로그인)")
+    + ' <span class="bdg '+(myLvl>=2?"br":myLvl>=1?"blue":"")+'">'+myLvlName()+'</span></div>'
+    + '<div class="li-s">'+ROLES[["hall","kitchen","manager","admin"][myLvl]].d+'</div></div></div>'
+    + '<div class="grid2" style="margin-top:11px">'
+    + (me? '<button class="btn g sm" onclick="changePwSheet()">🔒 비밀번호 변경</button>':'<span></span>')
+    + '<button class="btn sm bad" onclick="logout()">로그아웃</button></div></div>';
 
   b += '<div class="card"><div class="sec-t">📋 권한별로 되는 일</div>'
     + ["hall","kitchen","manager","admin"].map(function(r){
@@ -2326,28 +2360,26 @@ function openMe(){
           + '<div class="li-s">'+ROLES[r].d+'</div></div>'
           + (myLvl===ROLES[r].lv?'<span class="bdg ok">지금</span>':'')+'</div>';
       }).join("")+'</div>';
-  sheet("나 / 권한", b);
+
+  sheet("내 계정", b);
 }
-function setMe(id){
-  const s = staffById(id); if(!s) return;
-  const r = roleOf(s), lv = roleLv(r);
-  /* 매니저·관리자는 핀 확인 (본인 핀 없으면 관리자 핀) */
-  if(lv >= 2){
-    const want = String(s.pin || data.settings.adminPin || "1234");
-    const v = prompt(s.name+" 님("+roleName(r)+") 핀번호를 입력하세요");
-    if(v===null) return;
-    if(String(v).trim() !== want){ toast("핀번호가 틀려요 ✕"); return; }
-  } else if(s.pin){
-    const v = prompt(s.name+" 님의 핀번호를 입력하세요");
-    if(v===null) return;
-    if(String(v).trim() !== String(s.pin)){ toast("핀번호가 틀려요 ✕"); return; }
-  }
-  meId=id; lsSet("sm-me", id);
-  setLvl(lv);
-  if(!canRecipe() && tab==="recipe") tab="home";
-  if(!isAdmin() && (workSub==="pay"||workSub==="pl")) workSub="punch";
-  closeSheet(); render();
-  toast(meName()+" 님 · "+roleName(r)+" 권한으로 설정했어요 ✓");
+function changePwSheet(){
+  const me = staffById(meId); if(!me) return;
+  const b = '<div class="card"><div class="f"><label>지금 비밀번호</label><input type="password" id="cpOld" inputmode="numeric"></div>'
+    + '<div class="f"><label>새 비밀번호 (4자 이상)</label><input type="password" id="cpN1" inputmode="numeric"></div>'
+    + '<div class="f"><label>새 비밀번호 한 번 더</label><input type="password" id="cpN2" inputmode="numeric"></div>'
+    + '<button class="btn full" onclick="changePw()">변경</button></div>';
+  sheet("비밀번호 변경", b);
+}
+function changePw(){
+  const me = staffById(meId); if(!me) return;
+  const o=(document.getElementById("cpOld")||{}).value||"";
+  const n1=(document.getElementById("cpN1")||{}).value||"", n2=(document.getElementById("cpN2")||{}).value||"";
+  if(!checkPw(me,o)){ toast("지금 비밀번호가 달라요 ✕"); return; }
+  if(n1.length<4){ toast("4자 이상으로 만들어 주세요"); return; }
+  if(n1!==n2){ toast("새 비밀번호가 서로 달라요"); return; }
+  me.pwh = pwHash(me.id, n1); save();
+  closeSheet(); render(); toast("비밀번호를 바꿨어요 ✓");
 }
 /* 이름 선택 없이 권한만 올릴 때 (사장님 PC 등) */
 function raiseLvl(){
@@ -2406,6 +2438,112 @@ function openSettings(){
     b += '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="resetAll()">전체 데이터 초기화</button>';
   sheet("설정", b);
 }
+/* ═══════════════ 로그인 화면 ═══════════════ */
+function viewLogin(){
+  const list = data.staff.filter(function(s){ return s.active!==false; });
+  let h = '<div class="card" style="text-align:center;padding:22px 14px">'
+    + '<div style="font-size:34px">🍢</div>'
+    + '<div style="font-size:19px;font-weight:800;margin-top:6px">'+esc(data.settings.store||"가게관리")+'</div>'
+    + '<div class="muted" style="margin-top:4px">이름을 누르고 비밀번호를 입력하세요</div></div>';
+
+  if(!TEAM_ID){
+    h += '<div class="card" style="border-color:#f6d9a8;background:var(--warn-soft)">'
+      + '<div class="li-t">팀 코드가 아직 없어요</div>'
+      + '<div class="li-s" style="margin:4px 0 10px">사장님께 받은 초대 링크로 열거나, 코드를 입력해 주세요.</div>'
+      + '<button class="btn full sm" onclick="openTeamGate()">팀 코드 설정</button></div>';
+  }
+
+  if(!list.length){
+    h += '<div class="card"><div class="empty">등록된 사람이 없어요.<br>사장님 계정을 먼저 만들어 주세요.</div>'
+      + '<button class="btn full" onclick="firstAdmin()">👑 사장님 계정 만들기</button></div>';
+    return h;
+  }
+
+  h += '<div class="card"><div class="sec-t">👤 누구세요?</div>';
+  list.forEach(function(s){
+    const r=roleOf(s), lv=roleLv(r);
+    h += '<div class="li" onclick="loginSheet(\''+s.id+'\')"><div class="sp">'
+      + '<div class="li-t">'+esc(s.name)+' <span class="bdg '+(lv>=2?"br":lv>=1?"blue":"")+'">'+roleName(r)+'</span></div>'
+      + '<div class="li-s">'+(hasPw(s)? "비밀번호로 로그인" : "🔓 비밀번호 미설정 — 처음 로그인")+'</div></div>'
+      + '<span class="bdg">'+(hasPw(s)?"로그인":"설정")+'</span></div>';
+  });
+  h += '</div>';
+  h += '<button class="btn g full sm" onclick="loginByAdminPin()">🔑 관리자 핀으로 들어가기 (사장님)</button>'
+    + '<div class="muted" style="text-align:center;margin-top:9px">비밀번호를 잊었으면 사장님께 초기화를 요청하세요</div>';
+  return h;
+}
+function loginSheet(id){
+  const s = staffById(id); if(!s) return;
+  const first = !hasPw(s);
+  const r = roleOf(s), lv = roleLv(r);
+  let b = '<div class="card tight"><div class="row"><div class="sp">'
+    + '<div class="li-t">'+esc(s.name)+' <span class="bdg '+(lv>=2?"br":lv>=1?"blue":"")+'">'+roleName(r)+'</span></div>'
+    + '<div class="li-s">'+ROLES[r].d+'</div></div></div></div>';
+  if(first){
+    b += '<div class="card"><div class="sec-t">🔓 처음 로그인 — 비밀번호 만들기</div>'
+      + (lv>=2? '<div class="f"><label>관리자 핀 (매니저·관리자 계정 확인용)</label>'
+              + '<input type="password" id="lgAdmin" inputmode="numeric" placeholder="사장님께 받은 핀"></div>' : '')
+      + '<div class="f"><label>새 비밀번호 (4자 이상)</label><input type="password" id="lgP1" inputmode="numeric"></div>'
+      + '<div class="f"><label>한 번 더</label><input type="password" id="lgP2" inputmode="numeric"></div>'
+      + '<button class="btn full" onclick="createPw(\''+id+'\')">비밀번호 만들고 로그인</button>'
+      + '<div class="muted" style="margin-top:9px">이 비밀번호로 매번 로그인해요. 잊으면 사장님이 초기화해 줍니다.</div></div>';
+  } else {
+    b += '<div class="card"><div class="f"><label>비밀번호</label>'
+      + '<input type="password" id="lgP" class="pin" inputmode="numeric" autocomplete="current-password"></div>'
+      + '<button class="btn full" onclick="doLogin(\''+id+'\')">로그인</button></div>';
+  }
+  sheet("로그인", b);
+  setTimeout(function(){ const e=document.getElementById("lgP")||document.getElementById("lgAdmin")||document.getElementById("lgP1"); if(e) e.focus(); },200);
+}
+function doLogin(id){
+  const s = staffById(id); if(!s) return;
+  const pw = (document.getElementById("lgP")||{}).value || "";
+  if(!checkPw(s, pw)){ toast("비밀번호가 달라요 ✕"); return; }
+  loginDone(id, roleLv(roleOf(s)));
+  closeSheet(); render(); toast(s.name+" 님 환영합니다 ("+roleName(roleOf(s))+")");
+}
+function createPw(id){
+  const s = staffById(id); if(!s) return;
+  const lv = roleLv(roleOf(s));
+  if(lv>=2){
+    const ap = (document.getElementById("lgAdmin")||{}).value || "";
+    if(String(ap).trim() !== String(data.settings.adminPin||"1234")){ toast("관리자 핀이 달라요 ✕"); return; }
+  }
+  const p1=(document.getElementById("lgP1")||{}).value||"", p2=(document.getElementById("lgP2")||{}).value||"";
+  if(p1.length<4){ toast("4자 이상으로 만들어 주세요"); return; }
+  if(p1!==p2){ toast("두 번 입력한 값이 달라요"); return; }
+  s.pwh = pwHash(s.id, p1);
+  save();
+  loginDone(id, lv);
+  closeSheet(); render(); toast("비밀번호를 만들었어요 ✓");
+}
+function loginByAdminPin(){
+  const v = prompt("관리자 핀번호를 입력하세요");
+  if(v===null) return;
+  if(String(v).trim() !== String(data.settings.adminPin||"1234")){ toast("핀번호가 틀려요 ✕"); return; }
+  loginDone("", 3);
+  render(); toast("관리자로 들어왔어요");
+}
+function firstAdmin(){
+  const n = prompt("사장님 이름을 입력하세요");
+  if(n===null || !n.trim()) return;
+  const p = prompt("사용할 비밀번호를 입력하세요 (4자 이상)");
+  if(p===null) return;
+  if(String(p).length<4){ toast("4자 이상으로 만들어 주세요"); return; }
+  const s = { id:uid(), name:n.trim(), role:"admin", active:true,
+              payType:"monthly", monthly:0, deduct:"none" };
+  s.pwh = pwHash(s.id, p);
+  data.staff.push(s); save();
+  loginDone(s.id, 3);
+  render(); toast("사장님 계정을 만들었어요 ✓");
+}
+function resetPw(id){
+  const s = staffById(id); if(!s) return;
+  if(!isAdmin()){ toast("사장님만 초기화할 수 있어요"); return; }
+  if(!confirm(s.name+" 님의 비밀번호를 지울까요?\n다음 로그인 때 본인이 새로 만듭니다.")) return;
+  delete s.pwh; save(); closeSheet(); render(); toast("초기화했어요");
+}
+
 /* ═══ 팀 코드 연결 ═══ */
 function openTeamGate(){
   const b = '<div class="card"><div class="sec-t">🏪 사장님 — 처음 시작</div>'

@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-24b";
+const APP_VER    = "2026-08-24c";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1448,10 +1448,13 @@ function showRecipe(id){
   if(!(r.ings||[]).length) b += '<div class="muted">등록된 재료가 없어요</div>';
   (r.ings||[]).forEach(function(g){
     const it = g.sid? stockById(g.sid):null;
+    const cv = convHint(g);
     b += '<div class="li"><div class="sp"><div class="li-t">'+esc(g.name)+'</div>'
       + (it?'<div class="li-s">창고 재고 '+num(it.stock)+esc(it.unit||"")
+           +(num(it.perUnit)&&it.useUnit? ' (='+Math.round(num(it.stock)*num(it.perUnit)*10)/10+esc(it.useUnit)+')':'')
            +(isLow(it)?' <span class="bdg bad">부족</span>':'')+'</div>':'')
-      + '</div><b>'+num(g.qty)+esc(g.unit||"")+'</b></div>';
+      + '</div><div style="text-align:right"><b>'+num(g.qty)+esc(g.unit||"")+'</b>'
+      + (cv?'<div class="li-s">'+esc(cv)+'</div>':'')+'</div></div>';
   });
   b += '</div>';
 
@@ -1708,13 +1711,41 @@ function drawIngs(){
       + '<input placeholder="재료명" value="'+esc(g.name)+'" oninput="tmpIngs['+i+'].name=this.value">'
       + '<input type="number" step="any" placeholder="수량" value="'+(g.qty===""?"":num(g.qty))+'" oninput="tmpIngs['+i+'].qty=this.value">'
       + '<input placeholder="단위" value="'+esc(g.unit)+'" oninput="tmpIngs['+i+'].unit=this.value">'
-      + '</div></div>';
+      + '</div>'
+      + (function(){
+          const it = g.sid? stockById(g.sid):null;
+          if(!it) return "";
+          const uu = it.useUnit||"", pu = it.unit||"";
+          if(!uu || uu===pu) return "";
+          return '<div class="chips wrap" style="margin-top:7px">'
+            + '<span class="muted" style="align-self:center">단위</span>'
+            + '<button class="chip '+(g.unit===uu?"on":"")+'" onclick="setIngUnit('+i+',\''+jsq(uu)+'\')">'+esc(uu)+' (조리)</button>'
+            + '<button class="chip '+(g.unit===pu?"on":"")+'" onclick="setIngUnit('+i+',\''+jsq(pu)+'\')">'+esc(pu)+' (구매)</button>'
+            + (num(it.perUnit)? '<span class="muted" style="align-self:center">1'+esc(pu)+'='+num(it.perUnit)+esc(uu)+'</span>':'')
+            + '</div>';
+        })()
+      + '</div>';
   }).join("");
 }
+/* 자재를 고르면 '사용 단위'(있으면)를 기본으로 넣는다 */
+function useUnitOf(it){ return (it && it.useUnit) ? it.useUnit : (it? (it.unit||"") : ""); }
 function pickIng(i,sid){
   tmpIngs[i].sid = sid;
-  if(sid){ const it=stockById(sid); if(it){ tmpIngs[i].name=it.name; if(!tmpIngs[i].unit) tmpIngs[i].unit=it.unit||""; } }
+  if(sid){
+    const it=stockById(sid);
+    if(it){ tmpIngs[i].name=it.name; tmpIngs[i].unit = useUnitOf(it); }
+  }
   drawIngs();
+}
+function setIngUnit(i,u){ tmpIngs[i].unit=u; drawIngs(); }
+/* 사용량 → 구매 단위 환산 (1봉=20장 같은 값이 있을 때만) */
+function convHint(g){
+  if(!g || !g.sid) return "";
+  const it = stockById(g.sid);
+  if(!it || !num(it.perUnit) || !num(g.qty)) return "";
+  if(!it.useUnit || g.unit !== it.useUnit) return "";
+  const v = num(g.qty)/num(it.perUnit);
+  return "≈ "+(Math.round(v*100)/100)+(it.unit||"");
 }
 /* 자주 쓰는 재료 = 레시피에 많이 쓰인 순 → 부족하면 최근 입고한 자재로 채움 */
 function favStock(){
@@ -2028,7 +2059,7 @@ function stockListHtml(){
     }
     h += '<div class="li"><div class="sp" onclick="showItem(\''+i.id+'\')">'
       + '<div class="li-t">'+esc(i.name)+(isLow(i)?' <span class="bdg bad">부족</span>':'')+'</div>'
-      + '<div class="li-s">재고 <b>'+num(i.stock)+esc(i.unit||"")+'</b>'
+      + '<div class="li-s">재고 <b>'+num(i.stock)+esc(i.unit||"")+'</b>'+(num(i.perUnit)&&i.useUnit? ' (='+(Math.round(num(i.stock)*num(i.perUnit)*10)/10)+esc(i.useUnit)+')':'')
       + (num(i.min)?' / 최소 '+num(i.min)+esc(i.unit||""):'')
       + (canCost()&&num(i.price)?' · '+won(num(i.price))+'/'+esc(i.unit||"단위"):'')
       + (i.vendor?' · '+esc(i.vendor):'')+(i.exp?' · 📅 '+esc(i.exp)+' <span class="bdg '+(i.exp<today()?'bad':expLabel(i.exp).indexOf('D-')===0&&parseInt(expLabel(i.exp).slice(2))<=7?'warn':'')+'">'+expLabel(i.exp)+'</span>':'')+'</div></div>'
@@ -2047,6 +2078,7 @@ function showItem(id){
     + (isLow(i)?'<span class="bdg bad">발주 필요</span>':'<span class="bdg ok">충분</span>')+'</div>'
     + '<div class="divh"></div>'
     + '<div class="kv"><span>현재 재고</span><b>'+num(i.stock)+esc(i.unit||"")+'</b></div>'
+    + (num(i.perUnit)&&i.useUnit? '<div class="kv"><span>조리 단위 환산</span><b>'+(Math.round(num(i.stock)*num(i.perUnit)*10)/10)+esc(i.useUnit)+' (1'+esc(i.unit||"")+'='+num(i.perUnit)+esc(i.useUnit)+')</b></div>':'')
     + '<div class="kv"><span>최소 보유량</span><b>'+num(i.min)+esc(i.unit||"")+'</b></div>'
     + (canCost()?'<div class="kv"><span>단가</span><b>'+won(num(i.price))+' / '+esc(i.unit||"단위")+'</b></div>'
       +'<div class="kv"><span>재고 금액</span><b>'+won(num(i.stock)*num(i.price))+'</b></div>':'')
@@ -2152,6 +2184,14 @@ function editItem(id){
         + vendors().map(function(v){ return '<button class="btn xs g" onclick="setVendor(\''+jsq(v)+'\')">'+esc(v)+'</button>'; }).join("")
         + '</div>' : '<div class="muted" style="margin-top:5px">한 번 입력해두면 다음부터는 눌러서 고를 수 있어요</div>')
     + '</div>'
+    + '<div class="card"><div class="sec-t">📏 레시피에서 쓰는 단위 (선택)</div>'
+    + '<div class="muted" style="margin-bottom:8px">구매는 봉·박스로 해도 조리는 장·개로 쓰죠. '
+    + '여기에 적어두면 레시피에서 자동으로 그 단위가 나오고, 창고 재고로 환산해 줍니다.</div>'
+    + '<div class="grid2">'
+    + '<div class="f"><label>사용 단위</label><input id="iUU" value="'+(i?esc(i.useUnit||""):"")+'" placeholder="장 / 개 / g"></div>'
+    + '<div class="f"><label>1'+(i&&i.unit?esc(i.unit):"구매단위")+' = ?</label>'
+    + '<input type="number" step="any" id="iPU" value="'+(i&&num(i.perUnit)?num(i.perUnit):"")+'" placeholder="예: 20"></div></div>'
+    + '<div class="muted">예) 부산어묵 1봉 = 20장 → 사용 단위 <b>장</b>, 값 <b>20</b></div></div>'
     + '<div class="f"><label>유통기한 (선택)</label><input type="date" id="iE" value="'+(i?esc(i.exp||""):"")+'">'
     + expQuickChips("iE")+'</div>'
     + '<div class="f"><label>메모</label><input id="iMemo" value="'+(i?esc(i.memo):"")+'" placeholder="보관 위치 / 규격"></div>'
@@ -2174,6 +2214,8 @@ function saveItem(id){
   i.price=num(document.getElementById("iP").value);
   i.vendor=document.getElementById("iV").value.trim();
   const _e=document.getElementById("iE"); if(_e) i.exp=_e.value;
+  const _uu=document.getElementById("iUU"); if(_uu) i.useUnit=_uu.value.trim();
+  const _pu=document.getElementById("iPU"); if(_pu) i.perUnit=num(_pu.value);
   i.memo=document.getElementById("iMemo").value;
   save(); closeSheet(); render(); toast("저장했어요 ✓");
 }

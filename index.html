@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-25b";
+const APP_VER    = "2026-08-25c";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -2372,14 +2372,15 @@ function viewCheck(){
     const isThisWeek = chkPeriod==="monthly" && g===(wk+"주차");
     html += '<div class="card"><div class="row" style="margin-bottom:4px">'
       + '<div class="sec-t sp" style="margin:0">'+esc(g)+(isThisWeek?' <span class="bdg br">이번주</span>':'')+'</div>'
-      + (isMgr()?'<button class="btn xs g" onclick="addChkItem(\''+jsq(g)+'\')">+ 항목</button>':'')+'</div>';
+      + (isMgr()?'<button class="btn xs g" onclick="editChkGroup(\''+jsq(g)+'\')">✏️ 그룹</button>'
+               + '<button class="btn xs g" onclick="addChkItem(\''+jsq(g)+'\')">+ 항목</button>':'')+'</div>';
     groups[g].forEach(function(it,idx){
       const k=g+"::"+it, c=map[k];
       html += '<div class="chk '+(c?"done":"")+'" onclick="toggleChk(\''+jsq(g)+'\','+idx+')">'
         + '<div class="box '+(c?"on":"")+'">'+(c?"✓":"")+'</div>'
         + '<div class="sp"><div class="ctxt">'+esc(it)+'</div>'
         + (c?'<div class="li-s">'+esc(c.t)+(c.by?' · '+esc(c.by):'')+'</div>':'')+'</div>'
-        + (isMgr()?'<button class="btn xs g" onclick="event.stopPropagation();delChkItem(\''+jsq(g)+'\','+idx+')">✕</button>':'')
+        + (isMgr()?'<button class="btn xs g" onclick="event.stopPropagation();editChkItem(\''+jsq(g)+'\','+idx+')">✏️</button>':'')
         + '</div>';
     });
     html += '</div>';
@@ -2405,8 +2406,85 @@ function addChkItem(g){
 }
 function delChkItem(g,idx){
   if(!confirm("이 항목을 삭제할까요?")) return;
+  const it = data.chkItems[chkArea][chkPeriod][g][idx];
   data.chkItems[chkArea][chkPeriod][g].splice(idx,1);
-  save(); render();
+  moveCheckKey(g+"::"+it, null);          /* 체크 기록도 같이 정리 */
+  save(); closeSheet(); render(); toast("삭제했어요");
+}
+
+/* 체크 기록의 키를 옮기거나(이름 변경) 지운다 */
+function moveCheckKey(oldK, newK){
+  const pre = chkArea+"|"+chkPeriod+"|";
+  for(const mapKey in data.checks){
+    if(mapKey.indexOf(pre)!==0) continue;
+    const m = data.checks[mapKey];
+    if(m && m[oldK]!==undefined){
+      if(newK) m[newK] = m[oldK];
+      delete m[oldK];
+    }
+  }
+}
+/* 항목 수정 · 순서 이동 · 삭제 */
+function editChkItem(g, idx){
+  const arr = data.chkItems[chkArea][chkPeriod][g];
+  const it = arr[idx]; if(it===undefined) return;
+  const b = '<div class="card tight"><div class="muted">'+esc(g)+' · '+(idx+1)+'번째 항목</div></div>'
+    + '<div class="f"><label>항목 내용</label><textarea id="ciTxt" style="min-height:70px">'+esc(it)+'</textarea></div>'
+    + '<div class="grid2" style="margin-bottom:10px">'
+    + '<button class="btn g sm" '+(idx===0?'style="opacity:.4"':'')+' onclick="moveChkItem(\''+jsq(g)+'\','+idx+',-1)">↑ 위로</button>'
+    + '<button class="btn g sm" '+(idx===arr.length-1?'style="opacity:.4"':'')+' onclick="moveChkItem(\''+jsq(g)+'\','+idx+',1)">↓ 아래로</button></div>'
+    + '<button class="btn full" onclick="saveChkItem(\''+jsq(g)+'\','+idx+')">저장</button>'
+    + '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delChkItem(\''+jsq(g)+'\','+idx+')">삭제</button>'
+    + '<div class="muted" style="margin-top:10px">💡 이름을 바꿔도 지금까지 체크한 기록은 그대로 따라갑니다.</div>';
+  sheet("항목 수정", b);
+}
+function saveChkItem(g, idx){
+  const arr = data.chkItems[chkArea][chkPeriod][g];
+  const old = arr[idx];
+  const v = (document.getElementById("ciTxt")||{}).value || "";
+  const t = v.trim();
+  if(!t){ toast("내용을 입력하세요"); return; }
+  if(t === old){ closeSheet(); return; }
+  if(arr.indexOf(t) >= 0){ toast("같은 항목이 이미 있어요"); return; }
+  arr[idx] = t;
+  moveCheckKey(g+"::"+old, g+"::"+t);
+  save(); closeSheet(); render(); toast("수정했어요 ✓");
+}
+function moveChkItem(g, idx, d){
+  const arr = data.chkItems[chkArea][chkPeriod][g];
+  const j = idx + d;
+  if(j<0 || j>=arr.length) return;
+  const t = arr[idx]; arr[idx]=arr[j]; arr[j]=t;
+  save(); render(); editChkItem(g, j);
+}
+/* 그룹 이름 변경 · 그룹 삭제 */
+function editChkGroup(g){
+  const cnt = (data.chkItems[chkArea][chkPeriod][g]||[]).length;
+  const b = '<div class="f"><label>그룹 이름</label><input id="cgTxt" value="'+esc(g)+'"></div>'
+    + '<div class="muted" style="margin-bottom:12px">항목 '+cnt+'개가 이 그룹에 들어 있어요</div>'
+    + '<button class="btn full" onclick="saveChkGroup(\''+jsq(g)+'\')">저장</button>'
+    + '<button class="btn g full" style="margin-top:8px;color:var(--bad)" onclick="delChkGroup(\''+jsq(g)+'\')">그룹 통째로 삭제</button>';
+  sheet("그룹 수정", b);
+}
+function saveChkGroup(g){
+  const groups = data.chkItems[chkArea][chkPeriod];
+  const v = (document.getElementById("cgTxt")||{}).value || "";
+  const t = v.trim();
+  if(!t){ toast("이름을 입력하세요"); return; }
+  if(t===g){ closeSheet(); return; }
+  if(groups[t]){ toast("같은 이름의 그룹이 있어요"); return; }
+  const items = groups[g];
+  delete groups[g];
+  groups[t] = items;
+  items.forEach(function(it){ moveCheckKey(g+"::"+it, t+"::"+it); });
+  save(); closeSheet(); render(); toast("그룹 이름을 바꿨어요 ✓");
+}
+function delChkGroup(g){
+  const items = data.chkItems[chkArea][chkPeriod][g]||[];
+  if(!confirm("["+g+"] 그룹과 항목 "+items.length+"개를 모두 삭제할까요?")) return;
+  items.forEach(function(it){ moveCheckKey(g+"::"+it, null); });
+  delete data.chkItems[chkArea][chkPeriod][g];
+  save(); closeSheet(); render(); toast("그룹을 삭제했어요");
 }
 function addChkGroup(){
   const v = prompt("새 그룹 이름 (예: 배달 준비)");

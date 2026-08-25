@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26a";
+const APP_VER    = "2026-08-26b";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1955,9 +1955,12 @@ function expQuickFor(elId, days){
   if(days===null){ el.value=""; }
   else { const d=new Date(); d.setDate(d.getDate()+days); el.value=dateKey(d); }
 }
+/* 유통기한 빠른 선택 버튼 (오늘부터 +N일) */
+const EXP_QUICKS = [[3,"+3일"],[5,"+5일"],[7,"+1주"],[14,"+2주"],
+                    [30,"+1개월"],[90,"+3개월"],[180,"+6개월"]];
 function expQuickChips(elId){
   return '<div class="chips wrap" style="margin-top:7px">'
-    + [[7,"+7일"],[14,"+2주"],[30,"+1개월"],[90,"+3개월"],[180,"+6개월"]].map(function(q){
+    + EXP_QUICKS.map(function(q){
         return '<button class="chip" onclick="expQuickFor(\''+elId+'\','+q[0]+')">'+q[1]+'</button>';
       }).join("")
     + '<button class="chip" onclick="expQuickFor(\''+elId+'\',null)">지움</button></div>';
@@ -2001,7 +2004,7 @@ function bulkSheet(mode){
           + (i.exp?' · 현재 '+esc(i.exp)+' ('+expLabel(i.exp)+')':'')+'</div></div>'
           + '<input type="date" data-bid="'+i.id+'" value="'+esc(i.exp||"")+'" style="width:145px"></div>'
           + '<div class="chips wrap" style="margin-top:7px">'
-          + [[7,"+7일"],[14,"+2주"],[30,"+1개월"],[90,"+3개월"],[180,"+6개월"]].map(function(q){
+          + EXP_QUICKS.map(function(q){
               return '<button class="chip" onclick="expQuick(\''+i.id+'\','+q[0]+')">'+q[1]+'</button>';
             }).join("")
           + '<button class="chip" onclick="expQuick(\''+i.id+'\',null)">지움</button></div></div>';

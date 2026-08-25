@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "573481987394",
   appId: "1:573481987394:web:93e0bf8f1ae3d36383acdb"
 };
-const APP_VER    = "2026-08-24a";
+const APP_VER    = "2026-08-24b";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -419,7 +419,7 @@ function logout(){
 function deptLabel(d){ return {hall:"홀",kitchen:"주방",both:"홀+주방"}[d||"hall"]; }
 
 /* ═══ 저장 / 동기화 ═══ */
-let fbDoc=null, pushTimer=null, applyingRemote=false, pendingRemote=null, fbReady=false, unsub=null;
+let fbDoc=null, pushTimer=null, applyingRemote=false, pendingRemote=null, fbReady=false, unsub=null, remoteLoaded=false;
 
 /* 이 브라우저가 저장을 지원하는지 (시크릿 창·카톡 내부 브라우저는 실패할 수 있음) */
 const LS_OK = (function(){
@@ -488,14 +488,17 @@ function initFirebase(){
     if(unsub){ try{ unsub(); }catch(e){} unsub=null; }
     fbDoc=firebase.firestore().collection(COLLECTION).doc(TEAM_ID);
     unsub=fbDoc.onSnapshot(function(snap){
+      remoteLoaded=true;
       if(!snap.exists){ pushRemote(); return; }
       const d=snap.data();
       /* 내가 방금 쓴 변경은 무시. 단 이 기기가 비어 있으면 서버 자료를 받아온다 */
       if(d._client===CLIENT_ID && hasContent(data)) return;
       applyRemote(d);
-    }, function(err){ setSync("bad","동기화 오류: "+err.code); });
+    }, function(err){ remoteLoaded=true; setSync("bad","동기화 오류: "+err.code); render(); });
     setSync("ok");
   }catch(e){ setSync("bad","Firebase 초기화 실패"); }
+/* 자료가 안 오면 10초 뒤엔 로그인 화면을 열어준다 */
+setTimeout(function(){ if(!remoteLoaded){ remoteLoaded=true; render(); } }, 10000);
 }
 /* 알맹이가 있는 자료인지 (직원·자재·레시피·근무기록 중 하나라도 있으면 true) */
 function hasContent(o){
@@ -2454,6 +2457,12 @@ function viewLogin(){
   }
 
   if(!list.length){
+    /* 팀에 연결돼 있는데 아직 자료가 안 왔으면 계정 생성을 막는다 */
+    if(TEAM_ID && !remoteLoaded){
+      h += '<div class="card"><div class="empty">가게 자료를 불러오는 중…<br>'
+        + '<span class="muted">잠시 후에도 안 뜨면 새로고침해 주세요</span></div></div>';
+      return h;
+    }
     h += '<div class="card"><div class="empty">등록된 사람이 없어요.<br>사장님 계정을 먼저 만들어 주세요.</div>'
       + '<button class="btn full" onclick="firstAdmin()">👑 사장님 계정 만들기</button></div>';
     return h;

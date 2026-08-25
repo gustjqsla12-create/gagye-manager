@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26c";
+const APP_VER    = "2026-08-26d";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -484,13 +484,25 @@ function loadLocal(){
 }
 function save(){ saveLocal(); pushRemote(); }
 
+/* 서버에 마지막으로 반영된 내용 (필드별) — 이게 있어야 '바뀐 것만' 보낼 수 있다 */
+let lastPush = {};
+function markPushed(){ FIELDS.forEach(function(f){ lastPush[f]=JSON.stringify(data[f]); }); }
+
 function pushRemote(){
   if(!fbDoc || applyingRemote) return;
   clearTimeout(pushTimer);
   pushTimer=setTimeout(function(){
+    /* 서버 자료를 아직 못 받았으면 기다린다 (내 옛 내용으로 덮어쓰지 않도록) */
+    if(!remoteLoaded){ pushTimer=setTimeout(pushRemote, 1000); return; }
     const payload={ _client:CLIENT_ID, _updatedAt:Date.now() };
-    FIELDS.forEach(function(f){ payload[f]=JSON.stringify(data[f]); });
-    fbDoc.set(payload)
+    let changed=0;
+    FIELDS.forEach(function(f){
+      const j=JSON.stringify(data[f]);
+      if(lastPush[f] !== j){ payload[f]=j; lastPush[f]=j; changed++; }
+    });
+    if(!changed) return;                     /* 바뀐 게 없으면 아무것도 안 보냄 */
+    /* merge:true → 내가 고친 항목만 갱신, 나머지는 서버 것 그대로 둔다 */
+    fbDoc.set(payload, { merge:true })
       .then(function(){ setSync("ok"); })
       .catch(function(){ setSync("bad","동기화 실패 — 인터넷 확인"); });
   },600);
@@ -504,7 +516,7 @@ function initFirebase(){
     fbDoc=firebase.firestore().collection(COLLECTION).doc(TEAM_ID);
     unsub=fbDoc.onSnapshot(function(snap){
       remoteLoaded=true;
-      if(!snap.exists){ pushRemote(); return; }
+      if(!snap.exists){ lastPush={}; pushRemote(); return; }   /* 새 문서면 전체 올림 */
       const d=snap.data();
       /* 내가 방금 쓴 변경은 무시. 단 이 기기가 비어 있으면 서버 자료를 받아온다 */
       if(d._client===CLIENT_ID && hasContent(data)) return;
@@ -546,9 +558,19 @@ function applyRemote(d){
   }
   snapshotLocal();
   applyingRemote=true;
-  FIELDS.forEach(function(f){ if(inc[f]!==undefined) data[f]=inc[f]; });
+  const got=[];
+  FIELDS.forEach(function(f){
+    if(inc[f]!==undefined){
+      data[f]=inc[f];
+      lastPush[f]=JSON.stringify(inc[f]);     /* 받은 내용은 이미 서버에 있는 것 */
+      got.push(f);
+    }
+  });
   saveLocal(); render(); applyingRemote=false;
-  setSync("ok","다른 기기의 변경을 받았어요 🔄");
+  const NAMES={stock:"자재",recipes:"레시피",checks:"체크",chkItems:"체크항목",staff:"직원",
+               attend:"근무",moves:"입출고",sales:"매출",notes:"메모",shifts:"스케줄",settings:"설정",payAdj:"급여조정"};
+  const what = got.map(function(f){ return NAMES[f]||f; }).slice(0,3).join("·");
+  setSync("ok", what? ("다른 기기의 "+what+" 변경을 받았어요 🔄") : "다른 기기의 변경을 받았어요 🔄");
 }
 /* 마지막 자동 백업으로 되돌리기 */
 function snapInfo(){

@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-25a";
+const APP_VER    = "2026-08-25b";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -410,6 +410,21 @@ function isLoggedIn(){
 function loginDone(id, lv){
   if(id){ meId=id; lsSet("sm-me", id); } else { meId=""; lsDel("sm-me"); }
   setLvl(lv); lsSet("sm-auth","1");
+}
+/* 로그인한 사람의 역할이 바뀌면(사장님이 조정) 이 기기 권한도 따라간다.
+   기기에 저장된 값을 임의로 고쳐도 여기서 다시 맞춰집니다. */
+function syncMyLvl(){
+  if(!meId) return;                       /* 관리자 핀 로그인은 그대로 */
+  const s = staffById(meId);
+  if(!s) return;
+  if(s.active===false){ logout(); return; }
+  const lv = roleLv(roleOf(s));
+  if(lv !== myLvl){
+    setLvl(lv);
+    if(!canRecipe() && tab==="recipe") tab="home";
+    if(!isAdmin() && (workSub==="pay"||workSub==="pl")) workSub="punch";
+    toast("권한이 "+myLvlName()+"(으)로 바뀌었어요");
+  }
 }
 function logout(){
   lsDel("sm-auth"); lsDel("sm-me"); meId=""; setLvl(0);
@@ -711,6 +726,7 @@ function render(){
   document.getElementById("meBtn").style.display = "";
   document.getElementById("setBtn").style.display = "";
 
+  syncMyLvl();                       /* 사장님이 역할을 바꾸면 바로 반영 */
   const nv = nav.querySelectorAll("button");
   if(tab==="recipe" && !canRecipe()) tab="home";
   for(let i=0;i<nv.length;i++){
@@ -1298,11 +1314,57 @@ function copyShift(){
   copyTxt(t.trim());
 }
 
+/* ═══ 권한 관리 (사장님 전용) ═══ */
+function adminCount(){
+  return data.staff.filter(function(s){ return s.active!==false && roleOf(s)==="admin"; }).length;
+}
+function openRoles(){
+  if(!isAdmin()){ toast("사장님만 열 수 있어요"); return; }
+  const list = data.staff.filter(function(s){ return s.active!==false; });
+  let b = '<div class="card tight"><div class="muted">이름 아래 칩을 누르면 <b>바로 바뀝니다.</b> '
+    + '해당 직원 폰에도 다음 동기화 때 자동 반영돼요.</div></div>';
+  if(!list.length) b += '<div class="card"><div class="empty">등록된 직원이 없어요</div></div>';
+  list.forEach(function(s){
+    const cur = roleOf(s);
+    b += '<div class="card"><div class="row" style="margin-bottom:8px">'
+      + '<div class="sp"><div class="li-t">'+esc(s.name)+(s.id===meId?' <span class="bdg ok">나</span>':'')+'</div>'
+      + '<div class="li-s">'+(hasPw(s)? "🔒 비밀번호 설정됨" : "🔓 비밀번호 없음 (첫 로그인 때 생성)")+'</div></div>'
+      + (hasPw(s)? '<button class="btn xs g" onclick="resetPw(\''+s.id+'\')">비번 초기화</button>':'')+'</div>'
+      + '<div class="chips wrap">'
+      + ["hall","kitchen","manager","admin"].map(function(r){
+          return '<button class="chip '+(cur===r?"on":"")+'" onclick="setRole(\''+s.id+'\',\''+r+'\')">'+ROLES[r].n+'</button>';
+        }).join("")
+      + '</div>'
+      + '<div class="muted" style="margin-top:7px">'+ROLES[cur].d+'</div></div>';
+  });
+  b += '<div class="card"><div class="sec-t">📋 권한 요약</div>'
+    + ["hall","kitchen","manager","admin"].map(function(r){
+        const n = data.staff.filter(function(s){ return s.active!==false && roleOf(s)===r; }).length;
+        return '<div class="li"><div class="sp"><div class="li-t">'+ROLES[r].n+' <span class="bdg">'+n+'명</span></div>'
+          + '<div class="li-s">'+ROLES[r].d+'</div></div></div>';
+      }).join("")+'</div>';
+  sheet("🔑 권한 관리", b);
+}
+function setRole(id, r){
+  const s = staffById(id); if(!s || !ROLES[r]) return;
+  const cur = roleOf(s);
+  if(cur===r) return;
+  if(cur==="admin" && adminCount()<=1){
+    toast("관리자가 최소 1명은 있어야 해요"); return;
+  }
+  if(r==="admin" && !confirm(s.name+" 님에게 관리자 권한을 줄까요?\n급여·손익·직원관리·설정을 모두 볼 수 있게 됩니다.")) return;
+  if(r==="manager" && !confirm(s.name+" 님을 매니저로 지정할까요?\n단가·근무기록 수정·스케줄·매출 입력이 가능해집니다.")) return;
+  s.role = r;
+  save(); openRoles(); render();
+  toast(s.name+" → "+ROLES[r].n);
+}
+
 /* ═══ 직원 관리 ═══ */
 function viewStaff(){
   let html = '<div class="card"><div class="row" style="margin-bottom:6px">'
     + '<div class="sec-t sp" style="margin:0">👥 직원 목록</div>'
-    + (isAdmin()?'<button class="btn xs" onclick="editStaff(null)">+ 직원 추가</button>':'')+'</div>';
+    + (isAdmin()?'<button class="btn xs" onclick="editStaff(null)">+ 직원 추가</button>':'')+'</div>'
+    + (isAdmin()?'<button class="btn full sm blue" style="margin-bottom:10px" onclick="openRoles()">🔑 권한 관리 (역할·비밀번호)</button>':'');
   if(!data.staff.length) html += '<div class="empty">등록된 직원이 없어요.<br>+ 직원 추가를 눌러 등록하세요.</div>';
   data.staff.forEach(function(s){
     const p = payroll(s, monthKey(new Date()));

@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-25c";
+const APP_VER    = "2026-08-26a";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -573,7 +573,9 @@ function setSync(state,msg){
 function paintSync(){
   const state=syncState, msg=syncMsg;
   const dot=document.getElementById("syncDot"), txt=document.getElementById("syncTxt");
-  if(state==="ok"){ dot.className="dot"; txt.textContent=msg||("실시간 공유 중 ✓ · "+(meName()||"이름 미설정")+(isAdmin()?" (관리자)":" (직원)")); }
+  if(state==="ok"){ dot.className="dot";
+    txt.textContent = msg || ("실시간 공유 중 ✓ · "+(meName()||"미로그인")+" ("+myLvlName()+")"
+                              + (TEAM_ID? " · 팀 "+TEAM_ID.replace(/^store-/,"") : "")); }
   else { dot.className="dot bad"; txt.textContent=msg||"오류"; }
 }
 </script>
@@ -2737,10 +2739,19 @@ function resetPw(id){
 
 /* ═══ 팀 코드 연결 ═══ */
 function openTeamGate(){
-  const b = '<div class="card"><div class="sec-t">🏪 사장님 — 처음 시작</div>'
-    + '<div class="muted" style="margin-bottom:11px">새 팀 코드를 만들고 직원에게 알려주세요. '
-    + '이 기기에 지금 들어있는 자료가 그대로 팀 자료가 됩니다.</div>'
-    + '<button class="btn full" onclick="makeTeam()">＋ 새 팀 코드 만들기</button></div>'
+  /* 이미 팀에 연결돼 있으면 새로 만들기를 막는다 (문서가 갈라지는 사고 방지) */
+  const joined = !!TEAM_ID;
+  const b = (joined
+      ? '<div class="card" style="border-color:#f6d9a8;background:var(--warn-soft)">'
+        + '<div class="li-t">이미 팀에 연결돼 있어요</div>'
+        + '<div class="li-s" style="margin:4px 0 8px">현재 코드 <b style="font-family:monospace">'+esc(TEAM_ID)+'</b></div>'
+        + '<div class="muted">새 코드를 만들면 <b>빈 가게가 하나 더 생겨서</b> 자료가 갈라집니다. '
+        + '기기마다 보이는 게 달라져요. 웬만하면 만들지 마세요.</div>'
+        + '<button class="btn g full sm" style="margin-top:10px" onclick="makeTeam()">그래도 새 팀 만들기</button></div>'
+      : '<div class="card"><div class="sec-t">🏪 사장님 — 처음 시작</div>'
+        + '<div class="muted" style="margin-bottom:11px">새 팀 코드를 만들고 직원에게 알려주세요. '
+        + '이 기기에 지금 들어있는 자료가 그대로 팀 자료가 됩니다.</div>'
+        + '<button class="btn full" onclick="makeTeam()">＋ 새 팀 코드 만들기</button></div>')
     + '<div class="card"><div class="sec-t">👥 직원 — 사장님께 코드를 받았다면</div>'
     + '<div class="f"><input id="tCode" lang="en" autocapitalize="off" autocorrect="off" spellcheck="false" '
     + 'placeholder="store-xxxxxxxxxx" value="'+esc(TEAM_ID)+'"></div>'
@@ -2752,6 +2763,10 @@ function openTeamGate(){
 }
 function makeTeam(){
   const c = newTeamCode();
+  if(TEAM_ID){
+    if(!confirm("⚠️ 이미 '"+TEAM_ID+"' 팀에 연결돼 있어요.\n\n새로 만들면 지금 자료와 분리된 '빈 가게'가 생기고,\n기기마다 다른 자료를 보게 됩니다.\n\n정말 새로 만들까요?")) return;
+    if(!confirm("한 번 더 확인할게요.\n\n대부분의 경우 필요 없는 작업입니다.\n기존 팀으로 돌아가려면 초대 링크를 다시 열면 돼요.\n\n계속할까요?")) return;
+  }
   if(!confirm("새 팀 코드를 만들까요?\n\n"+c+"\n\n이 기기가 사장님(관리자) 기기가 되고,\n직원 폰은 초대 링크로 연결하면 직원 모드로 열립니다.")) return;
   if(setTeam(c)){
     myRole="admin"; lsSet("sm-role","admin");      /* 팀을 만든 기기 = 관리자 */

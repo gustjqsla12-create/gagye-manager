@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26e";
+const APP_VER    = "2026-08-26f";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1163,7 +1163,7 @@ function togglePaid(sid){
   const a=getAdj(payMonth,sid); setAdj(payMonth,sid,{paid:!a.paid}); paySheet(sid); render();
 }
 function payslipText(s){
-  const m=payMonth, p=payroll(s,m),payMode), adj=getAdj(m,s.id);
+  const m=payMonth, p=payroll(s,m,payMode), adj=getAdj(m,s.id);
   let t = "【"+(data.settings.store||"")+"】 "+monthLabel(m)+" 급여명세서\n";
   t += "─────────────────\n성명: "+s.name+"\n";
   t += "근무: "+p.days+"일 / "+durTxt(p.totalMin)+"\n";

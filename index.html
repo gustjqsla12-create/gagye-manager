@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26f";
+const APP_VER    = "2026-08-26g";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -691,6 +691,12 @@ function payroll(staff, m, src){
     R.ded.push({n:"건강보험 3.545%", v: health});
     R.ded.push({n:"장기요양 12.95%", v: health*0.1295});
     R.ded.push({n:"고용보험 0.9%",   v: R.gross*0.009});
+  }
+  /* 소득세 (간이세액표 금액을 직원별로 지정) + 지방소득세 10% */
+  const tax = num(staff.incomeTax);
+  if(mode !== "33" && tax > 0){
+    R.ded.push({n:"소득세",     v: tax});
+    R.ded.push({n:"지방소득세", v: Math.round(tax*0.1)});
   }
   if(R.cut > 0) R.ded.push({n: adj.cutMemo || "기타 공제", v: R.cut});
   R.ded.forEach(function(d){ R.dedSum += d.v; });
@@ -1484,6 +1490,10 @@ function editStaff(id){
     + '<option value="four" '+sel("four",s?s.deduct:"")+'>4대보험</option></select></div>'
     + '<div class="f"><label>핀번호 (4자리, 선택)</label><input id="sP" inputmode="numeric" maxlength="4" value="'+(s?esc(s.pin):"")+'" placeholder="예: 1234"></div>'
     + '</div>'
+    + '<div class="f"><label>월 소득세 (원, 선택)</label>'
+    + '<input type="number" id="sTax" inputmode="numeric" value="'+(s&&num(s.incomeTax)?num(s.incomeTax):"")+'" placeholder="명세서의 소득세 금액">'
+    + '<div class="muted" style="margin-top:5px">급여명세서에 적힌 소득세를 넣으면 <b>지방소득세 10%는 자동</b>으로 함께 빠집니다. '
+    + '(3.3% 공제인 직원은 해당 없음)</div></div>'
     + '<div class="grid2">'
     + '<div class="f"><label>야간수당 적용</label><select id="sNi"><option value="1" '+(s&&s.nightPay===false?"":"selected")+'>적용</option><option value="0" '+(s&&s.nightPay===false?"selected":"")+'>미적용</option></select></div>'
     + '<div class="f"><label>주휴수당 적용</label><select id="sWk"><option value="1" '+(s&&s.weeklyPay===false?"":"selected")+'>적용</option><option value="0" '+(s&&s.weeklyPay===false?"selected":"")+'>미적용</option></select></div>'
@@ -1521,6 +1531,7 @@ function saveStaff(id){
   s.monthly=num(document.getElementById("sM").value);
   s.deduct=document.getElementById("sD").value;
   s.pin=document.getElementById("sP").value.trim();
+  s.incomeTax=num((document.getElementById("sTax")||{}).value);
   s.nightPay=document.getElementById("sNi").value==="1";
   s.weeklyPay=document.getElementById("sWk").value==="1";
   s.role=document.getElementById("sRole").value;

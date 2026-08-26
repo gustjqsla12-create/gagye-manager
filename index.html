@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26g";
+const APP_VER    = "2026-08-26h";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -1302,7 +1302,11 @@ function viewShift(){
     + '<button class="btn g sm" onclick="workDate.setDate(workDate.getDate()-7);render()">‹</button>'
     + '<div class="sp" style="text-align:center;font-weight:800">'
     + (s0.getMonth()+1)+'/'+s0.getDate()+' 주 스케줄</div>'
-    + '<button class="btn g sm" onclick="workDate.setDate(workDate.getDate()+7);render()">›</button></div></div>';
+    + '<button class="btn g sm" onclick="workDate.setDate(workDate.getDate()+7);render()">›</button></div>'
+    + (isMgr()? '<div class="grid2" style="margin-top:9px">'
+        + '<button class="btn g sm" onclick="fixedSheet()">🔁 고정 근무</button>'
+        + '<button class="btn ok sm" onclick="genShifts(\'week\')">이번 주 채우기</button></div>' : '')
+    + '</div>';
   if(!data.staff.length) return html+'<div class="card"><div class="empty">직원을 먼저 등록해 주세요</div></div>';
 
   /* 이번 주 배정 시간 · 예상 인건비 */
@@ -1357,6 +1361,86 @@ function viewShift(){
   html += '<button class="btn g full sm" onclick="copyShift()">📋 이번주 스케줄 복사</button>';
   return html;
 }
+/* ═══ 고정 근무 (요일 반복) ═══ */
+function fixedOf(s){ return (s && Array.isArray(s.fixed)) ? s.fixed : []; }
+function fixedSheet(){
+  if(!isMgr()){ toast("매니저 이상만 설정할 수 있어요"); return; }
+  const list = data.staff.filter(function(s){ return s.active!==false; });
+  let b = '<div class="card tight"><div class="muted">매주 같은 요일·같은 시간에 나오는 근무를 등록해 두면, '
+    + '버튼 한 번으로 스케줄이 채워집니다. 퇴근이 자정을 넘어도 그대로 적으세요 (예 21:00 → 00:30).</div></div>';
+  if(!list.length) b += '<div class="card"><div class="empty">직원을 먼저 등록해 주세요</div></div>';
+  list.forEach(function(s){
+    const fx = fixedOf(s);
+    const on = {}; fx.forEach(function(f,i){ on[f.dow]=i; });
+    b += '<div class="card"><div class="row" style="margin-bottom:8px">'
+      + '<div class="sp li-t">'+esc(s.name)+'</div>'
+      + '<span class="muted">'+(fx.length? fx.length+"일 고정":"없음")+'</span></div>'
+      + '<div class="chips wrap" style="margin-bottom:8px">'
+      + [1,2,3,4,5,6,0].map(function(d){
+          return '<button class="chip '+(on[d]!==undefined?"on":"")+'" onclick="toggleFixed(\''+s.id+'\','+d+')">'+DAYS[d]+'</button>';
+        }).join("")+'</div>';
+    fx.slice().sort(function(a,c){ return ((a.dow+6)%7)-((c.dow+6)%7); }).forEach(function(f){
+      const idx = fx.indexOf(f);
+      b += '<div class="row" style="margin-bottom:7px">'
+        + '<span class="bdg br" style="min-width:34px;text-align:center">'+DAYS[f.dow]+'</span>'
+        + '<input type="time" value="'+esc(f.start||"")+'" onchange="setFixed(\''+s.id+'\','+idx+',\'start\',this.value)">'
+        + '<span class="muted">~</span>'
+        + '<input type="time" value="'+esc(f.end||"")+'" onchange="setFixed(\''+s.id+'\','+idx+',\'end\',this.value)">'
+        + '<button class="btn xs g" style="color:var(--bad)" onclick="toggleFixed(\''+s.id+'\','+f.dow+')">✕</button></div>';
+    });
+    b += '</div>';
+  });
+  b += '<div class="card"><div class="sec-t">📅 스케줄 채우기</div>'
+    + '<div class="grid2"><button class="btn ok sm" onclick="genShifts(\'week\')">이번 주 채우기</button>'
+    + '<button class="btn ok sm" onclick="genShifts(\'month\')">이번 달 채우기</button></div>'
+    + '<button class="btn g full sm" style="margin-top:9px" onclick="genShifts(\'nextmonth\')">다음 달 채우기</button>'
+    + '<div class="muted" style="margin-top:9px">이미 배정된 날은 건드리지 않습니다. 쉬는 날은 채워진 뒤 그 날 배정을 지우면 돼요.</div></div>';
+  sheet("🔁 고정 근무", b);
+}
+function toggleFixed(sid, dow){
+  const s = staffById(sid); if(!s) return;
+  if(!Array.isArray(s.fixed)) s.fixed=[];
+  const i = s.fixed.findIndex(function(f){ return f.dow===dow; });
+  if(i>=0) s.fixed.splice(i,1);
+  else {
+    const last = s.fixed[s.fixed.length-1];
+    s.fixed.push({ dow:dow, start:(last&&last.start)||"17:00", end:(last&&last.end)||"23:00", memo:"" });
+  }
+  save(); fixedSheet();
+}
+function setFixed(sid, idx, key, val){
+  const s = staffById(sid); if(!s || !s.fixed || !s.fixed[idx]) return;
+  s.fixed[idx][key]=val; save();
+}
+function genShifts(scope){
+  let from, to;
+  const now = new Date();
+  if(scope==="week"){ from = weekStart(workDate); to = new Date(from); to.setDate(to.getDate()+6); }
+  else {
+    const base = scope==="nextmonth" ? new Date(now.getFullYear(), now.getMonth()+1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
+    from = base; to = new Date(base.getFullYear(), base.getMonth()+1, 0);
+  }
+  let added=0, skipped=0;
+  const d = new Date(from);
+  while(d <= to){
+    const dk = dateKey(d), dow = d.getDay();
+    data.staff.filter(function(s){ return s.active!==false; }).forEach(function(s){
+      fixedOf(s).forEach(function(f){
+        if(f.dow!==dow || !f.start || !f.end) return;
+        const dup = data.shifts.some(function(x){ return x.staffId===s.id && x.date===dk; });
+        if(dup){ skipped++; return; }
+        data.shifts.push({ id:uid(), staffId:s.id, date:dk, start:f.start, end:f.end,
+                           memo:f.memo||"고정", by:meName() });
+        added++;
+      });
+    });
+    d.setDate(d.getDate()+1);
+  }
+  if(!added && !skipped){ toast("등록된 고정 근무가 없어요"); return; }
+  save(); closeSheet(); render();
+  toast(added+"건 채웠어요"+(skipped?" (이미 있던 "+skipped+"건은 그대로)":"")+" ✓");
+}
+
 function editShift(id, dk){
   const x = id? data.shifts.filter(function(v){ return v.id===id; })[0] : null;
   const opts = data.staff.filter(function(s){ return s.active!==false; }).map(function(s){

@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26d";
+const APP_VER    = "2026-08-26e";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -295,7 +295,7 @@ let myRole = lsGet("sm-role") || "staff";   // admin | staff
 /* 화면 상태 */
 let tab = "home";
 let recipeCat = "전체", recipeQ = "";
-let workSub = "punch";                                     // punch | pay
+let workSub = "punch", payMode = "attend";   // payMode: attend(실제) | shift(스케줄)
 let workDate = new Date();
 let payMonth = monthKey(new Date());
 let stockCat = "전체", stockQ = "", stockSub = "list", stockSort = "low";
@@ -635,11 +635,16 @@ function setAdj(m,sid,patch){
   data.payAdj[adjKey(m,sid)] = cur; save();
 }
 
-/* 한 직원의 월 급여 계산 */
-function payroll(staff, m){
-  const recs = data.attend.filter(function(r){
-    return r.staffId===staff.id && r.date && r.date.slice(0,7)===m && r.out;
-  });
+/* 한 직원의 월 급여 계산
+   src: "attend"(실제 찍은 근무, 기본) | "shift"(짜놓은 스케줄) */
+function payroll(staff, m, src){
+  const recs = (src==="shift")
+    ? data.shifts.filter(function(x){
+        return x.staffId===staff.id && x.date && x.date.slice(0,7)===m && x.start && x.end;
+      }).map(function(x){ return { date:x.date, in:x.start, out:x.end, brk:num(x.brk) }; })
+    : data.attend.filter(function(r){
+        return r.staffId===staff.id && r.date && r.date.slice(0,7)===m && r.out;
+      });
   let total=0, night=0, ot=0, days={};
   recs.forEach(function(r){
     const c = recCalc(r);
@@ -1047,7 +1052,10 @@ function delRec(id){
 /* ═══ 급여 ═══ */
 function viewPay(){
   const m = payMonth;
-  let html = '<div class="card tight"><div class="row">'
+  let html = '<div class="seg">'
+    + '<button class="'+(payMode==="attend"?"on":"")+'" onclick="payMode=\'attend\';render()">⏱️ 실제 근무</button>'
+    + '<button class="'+(payMode==="shift"?"on":"")+'" onclick="payMode=\'shift\';render()">📅 스케줄 예상</button></div>'
+    + '<div class="card tight"><div class="row">'
     + '<button class="btn g sm" onclick="payMonth=shiftMonth(payMonth,-1);render()">‹</button>'
     + '<div class="sp" style="text-align:center;font-weight:800">'+monthLabel(m)+'</div>'
     + '<button class="btn g sm" onclick="payMonth=shiftMonth(payMonth,1);render()">›</button></div></div>';
@@ -1055,10 +1063,19 @@ function viewPay(){
   const list = data.staff.filter(function(s){ return s.active!==false; });
   if(!list.length) return html+'<div class="card"><div class="empty">직원을 먼저 등록해 주세요</div></div>';
 
+  if(payMode==="shift"){
+    const cnt = data.shifts.filter(function(x){ return (x.date||"").slice(0,7)===m; }).length;
+    html += '<div class="card tight" style="border-color:#c7d2fe;background:var(--blue-soft)">'
+      + '<div class="li-t">📅 짜놓은 스케줄로 계산한 예상 급여</div>'
+      + '<div class="li-s" style="margin-top:3px">'+monthLabel(m)+' 배정 '+cnt+'건 기준 · 실제 출퇴근과 다를 수 있어요</div>'
+      + (cnt? '' : '<div class="muted" style="margin-top:7px">아직 이 달 스케줄이 없어요. 근태·급여 → 📅 스케줄에서 배정하세요.</div>')
+      + '</div>';
+  }
+
   let gross=0, net=0, mins=0;
-  html += '<div class="card"><div class="sec-t">👥 직원별 급여</div>';
+  html += '<div class="card"><div class="sec-t">👥 직원별 '+(payMode==="shift"?"예상 급여":"급여")+'</div>';
   list.forEach(function(s){
-    const p = payroll(s, m);
+    const p = payroll(s, m, payMode);
     gross += p.gross; net += p.net; mins += p.totalMin;
     html += '<div class="li" onclick="paySheet(\''+s.id+'\')"><div class="sp">'
       + '<div class="li-t">'+esc(s.name)+' <span class="bdg '+(p.type==="monthly"?"blue":"br")+'">'
@@ -1071,10 +1088,20 @@ function viewPay(){
   });
   html += '</div>';
 
-  html += '<div class="card"><div class="sec-t">📊 '+monthLabel(m)+' 합계</div>'
-    + '<div class="kv"><span>총 근무시간</span><b>'+durTxt(mins)+'</b></div>'
+  /* 실제 vs 스케줄 비교 */
+  let other=0, otherMin=0;
+  const otherMode = payMode==="shift" ? "attend" : "shift";
+  list.forEach(function(s){ const p=payroll(s,m,otherMode); other+=p.net; otherMin+=p.totalMin; });
+
+  html += '<div class="card"><div class="sec-t">📊 '+monthLabel(m)+' 합계 '
+    + (payMode==="shift"?'<span class="bdg blue">스케줄 예상</span>':'<span class="bdg br">실제 근무</span>')+'</div>'
+    + '<div class="kv"><span>총 '+(payMode==="shift"?"배정":"근무")+'시간</span><b>'+durTxt(mins)+'</b></div>'
     + '<div class="kv"><span>세전 합계</span><b>'+won(gross)+'</b></div>'
     + '<div class="kv big"><span>실지급 합계</span><b>'+won(net)+'</b></div>'
+    + (otherMin? '<div class="divh"></div>'
+        + '<div class="kv"><span>'+(otherMode==="shift"?"스케줄 예상":"실제 근무")+' 기준</span><b>'+won(other)+'</b></div>'
+        + '<div class="kv"><span>차이</span><b style="color:'+(net-other>0?"var(--bad)":"var(--ok)")+'">'
+        + (net-other>0?"+":"")+won(net-other)+'</b></div>' : '')
     + '<div class="muted" style="margin-top:8px">급여일: 매월 '+num(data.settings.payday,10)+'일</div>'
     + '<div class="grid2" style="margin-top:11px">'
     + '<button class="btn g sm" onclick="copyPayAll()">📋 전체 요약 복사</button>'
@@ -1092,7 +1119,7 @@ function viewPay(){
 
 function paySheet(sid){
   const s = staffById(sid); if(!s) return;
-  const m = payMonth, p = payroll(s, m), adj = getAdj(m,sid);
+  const m = payMonth, p = payroll(s, m, payMode), adj = getAdj(m,sid);
   let b = '<div class="card"><div class="sec-t">'+esc(s.name)+' · '+monthLabel(m)+'</div>'
     + '<div class="kv"><span>근무일수</span><b>'+p.days+'일</b></div>'
     + '<div class="kv"><span>총 근무시간</span><b>'+durTxt(p.totalMin)+'</b></div>'
@@ -1136,7 +1163,7 @@ function togglePaid(sid){
   const a=getAdj(payMonth,sid); setAdj(payMonth,sid,{paid:!a.paid}); paySheet(sid); render();
 }
 function payslipText(s){
-  const m=payMonth, p=payroll(s,m), adj=getAdj(m,s.id);
+  const m=payMonth, p=payroll(s,m),payMode), adj=getAdj(m,s.id);
   let t = "【"+(data.settings.store||"")+"】 "+monthLabel(m)+" 급여명세서\n";
   t += "─────────────────\n성명: "+s.name+"\n";
   t += "근무: "+p.days+"일 / "+durTxt(p.totalMin)+"\n";
@@ -1159,7 +1186,7 @@ function copyPayAll(){
   let t = "【"+(data.settings.store||"")+"】 "+monthLabel(payMonth)+" 급여 요약\n─────────────────\n";
   let net=0;
   data.staff.filter(function(s){return s.active!==false;}).forEach(function(s){
-    const p=payroll(s,payMonth); net+=p.net;
+    const p=payroll(s,payMonth,payMode); net+=p.net;
     t += s.name+"  "+p.days+"일/"+durTxt(p.totalMin)+"  "+won(p.net)+(p.paid?" (지급완료)":"")+"\n";
   });
   t += "─────────────────\n실지급 합계 "+won(net);
@@ -1271,6 +1298,38 @@ function viewShift(){
     + (s0.getMonth()+1)+'/'+s0.getDate()+' 주 스케줄</div>'
     + '<button class="btn g sm" onclick="workDate.setDate(workDate.getDate()+7);render()">›</button></div></div>';
   if(!data.staff.length) return html+'<div class="card"><div class="empty">직원을 먼저 등록해 주세요</div></div>';
+
+  /* 이번 주 배정 시간 · 예상 인건비 */
+  const wk = {};
+  let wkMin=0, wkPay=0;
+  for(let k=0;k<7;k++){
+    const d=new Date(s0); d.setDate(d.getDate()+k);
+    const dk=dateKey(d);
+    data.shifts.filter(function(x){ return x.date===dk && x.start && x.end; }).forEach(function(x){
+      const c = recCalc({ in:x.start, out:x.end, brk:num(x.brk) });
+      wk[x.staffId] = (wk[x.staffId]||0) + c.total;
+      wkMin += c.total;
+      const st = staffById(x.staffId);
+      if(st && (st.payType||"hourly")!=="monthly"){
+        let p = (c.total/60)*num(st.wage);
+        if(data.settings.nightPay && st.nightPay!==false) p += (c.night/60)*num(st.wage)*0.5;
+        wkPay += p;
+      }
+    });
+  }
+  if(wkMin){
+    html += '<div class="card"><div class="sec-t">📊 이번 주 배정</div>';
+    Object.keys(wk).forEach(function(sid){
+      const st=staffById(sid);
+      html += '<div class="li"><div class="sp li-t">'+esc(st?st.name:"(삭제됨)")+'</div>'
+        + '<span class="muted">'+durTxt(wk[sid])+'</span></div>';
+    });
+    html += '<div class="kv" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">'
+      + '<span>합계</span><b>'+durTxt(wkMin)+'</b></div>'
+      + (isAdmin()? '<div class="kv big"><span>예상 인건비 (시급직, 세전)</span><b>'+won(wkPay)+'</b></div>'
+          + '<button class="btn g full sm" style="margin-top:9px" onclick="workSub=\'pay\';payMode=\'shift\';render()">월 단위로 보기 →</button>' : '')
+      + '</div>';
+  }
 
   for(let k=0;k<7;k++){
     const d=new Date(s0); d.setDate(d.getDate()+k);

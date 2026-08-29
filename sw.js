@@ -1,5 +1,5 @@
 /* 가게관리 통합앱 서비스워커 — 네트워크 우선, 오프라인 시 캐시 */
-const CACHE = "store-mgr-v28";
+const CACHE = "store-mgr-v29";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", function(e){

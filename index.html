@@ -233,7 +233,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "542107975909",
   appId: "1:542107975909:web:4aa21a87081b599268940c"
 };
-const APP_VER    = "2026-08-26h";
+const APP_VER    = "2026-08-26i";
 const COLLECTION = "store-manager";
 const LS_KEY     = "sm-data-v1";
 /* 팀 코드는 소스에 넣지 않고 기기마다 한 번 입력합니다.
@@ -944,11 +944,20 @@ function viewHome(){
          +  '<div class="kv"><span>예상 인건비 (실지급 합계)</span><b>'+won(sum)+'</b></div>'
          +  '<button class="btn g full sm" style="margin-top:11px" onclick="workSub=\'pay\';payMonth=\''+m+'\';go(\'work\')">급여 자세히 보기</button></div>';
   } else if(me){
-    const p = payroll(me, m);
-    html += '<div class="card"><div class="sec-t">💰 이번달 내 급여 (예상)</div>'
-         +  '<div class="kv"><span>근무</span><b>'+p.days+'일 · '+durTxt(p.totalMin)+'</b></div>'
+    const pa = payroll(me, m, "attend"), ps = payroll(me, m, "shift");
+    const useShift = (!pa.totalMin && ps.totalMin);
+    const p = useShift ? ps : pa;
+    html += '<div class="card"><div class="row" style="margin-bottom:7px">'
+         +  '<div class="sec-t sp" style="margin:0">💰 이번달 내 급여 (예상)</div>'
+         +  (useShift?'<span class="bdg blue">스케줄 기준</span>':'<span class="bdg br">근무 기준</span>')+'</div>'
+         +  '<div class="kv"><span>'+(useShift?"배정":"근무")+'</span><b>'+p.days+'일 · '+durTxt(p.totalMin)+'</b></div>'
+         +  (p.nightMin?'<div class="kv"><span>야간</span><b>'+durTxt(p.nightMin)+'</b></div>':'')
          +  '<div class="kv big"><span>실지급 예상</span><b>'+won(p.net)+'</b></div>'
-         +  '<div class="muted" style="margin-top:6px">※ 확정 금액은 사장님 정산 기준입니다</div></div>';
+         +  (useShift && pa.totalMin===0 && ps.totalMin
+              ? '' : (ps.totalMin && !useShift
+                  ? '<div class="kv"><span>스케줄대로면</span><b>'+won(ps.net)+'</b></div>' : ''))
+         +  '<button class="btn g full sm" style="margin-top:10px" onclick="myPaySheet()">자세히 보기</button>'
+         +  '<div class="muted" style="margin-top:7px">※ 확정 금액은 사장님 정산 기준입니다</div></div>';
   }
   return html;
 }
@@ -957,11 +966,12 @@ function viewHome(){
 /* ═══════════════ 근태 · 급여 ═══════════════ */
 function viewWork(){
   const subs = [["punch","⏱️ 근무"],["shift","📅 스케줄"]]
-    .concat(isAdmin()? [["pay","💰 급여"],["pl","📊 손익"]] : [])
+    .concat(isAdmin()? [["pay","💰 급여"],["pl","📊 손익"]] : (meId? [["mypay","💰 내 급여"]] : []))
     .concat([["staff","👥 직원"]]);
   let html = '<div class="chips">'+subs.map(function(s){
       return '<button class="chip '+(workSub===s[0]?"on":"")+'" onclick="workSub=\''+s[0]+'\';render()">'+s[1]+'</button>';
     }).join("")+'</div>';
+  if(workSub==="mypay" && !isAdmin()){ setTimeout(myPaySheet,0); workSub="punch"; return html + viewPunch(); }
   if(workSub==="pay"   && isAdmin()) return html + viewPay();
   if(workSub==="pl"    && isAdmin()) return html + viewPL();
   if(workSub==="shift") return html + viewShift();
@@ -1361,6 +1371,61 @@ function viewShift(){
   html += '<button class="btn g full sm" onclick="copyShift()">📋 이번주 스케줄 복사</button>';
   return html;
 }
+/* ═══ 내 급여 (직원 본인만) ═══ */
+function myPaySheet(m){
+  const s = staffById(meId);
+  if(!s){ toast("로그인 정보를 찾을 수 없어요"); return; }
+  const mm = m || monthKey(new Date());
+  const pa = payroll(s, mm, "attend"), ps = payroll(s, mm, "shift");
+  const useShift = (!pa.totalMin && ps.totalMin);        /* 출퇴근을 안 찍는 직원이면 스케줄 기준 */
+  const p = useShift ? ps : pa;
+
+  let b = '<div class="card tight"><div class="row">'
+    + '<button class="btn g sm" onclick="myPaySheet(\''+shiftMonth(mm,-1)+'\')">‹</button>'
+    + '<div class="sp" style="text-align:center;font-weight:800">'+monthLabel(mm)+'</div>'
+    + '<button class="btn g sm" onclick="myPaySheet(\''+shiftMonth(mm,1)+'\')">›</button></div></div>';
+
+  b += '<div class="card"><div class="sec-t">'+esc(s.name)+' · '
+    + (useShift?'<span class="bdg blue">스케줄 기준</span>':'<span class="bdg br">실제 근무 기준</span>')+'</div>'
+    + '<div class="kv"><span>'+(useShift?"배정":"근무")+' 일수</span><b>'+p.days+'일</b></div>'
+    + '<div class="kv"><span>총 시간</span><b>'+durTxt(p.totalMin)+'</b></div>'
+    + (p.nightMin?'<div class="kv"><span>야간 (22~06시)</span><b>'+durTxt(p.nightMin)+'</b></div>':'')
+    + '</div>';
+
+  b += '<div class="card"><div class="sec-t">💵 지급 내역</div>'
+    + '<div class="kv"><span>'+(p.type==="monthly"?"기본급 (월급)":"기본급")+'</span><b>'+won(p.base)+'</b></div>'
+    + (p.nightPay?'<div class="kv"><span>야간수당</span><b>'+won(p.nightPay)+'</b></div>':'')
+    + (p.otPay?'<div class="kv"><span>연장수당</span><b>'+won(p.otPay)+'</b></div>':'')
+    + (p.weekPay?'<div class="kv"><span>주휴수당</span><b>'+won(p.weekPay)+'</b></div>':'')
+    + (p.bonus?'<div class="kv"><span>추가 수당</span><b>'+won(p.bonus)+'</b></div>':'')
+    + '<div class="kv"><span>세전 합계</span><b>'+won(p.gross)+'</b></div>';
+  if(p.ded.length){
+    b += '<div class="divh"></div>';
+    p.ded.forEach(function(d){ b += '<div class="kv"><span>'+esc(d.n)+'</span><b>-'+won(d.v)+'</b></div>'; });
+  }
+  b += '<div class="kv big"><span>실지급 예상</span><b>'+won(p.net)+'</b></div>'
+    + '<div class="muted" style="margin-top:8px">※ 예상 금액이에요. 확정 금액은 사장님 정산 기준입니다.'
+    + (useShift? '<br>출퇴근을 찍지 않아 짜여진 스케줄로 계산했어요.':'')+'</div></div>';
+
+  /* 이번달 내 기록 */
+  const recs = useShift
+    ? data.shifts.filter(function(x){ return x.staffId===s.id && (x.date||"").slice(0,7)===mm; })
+        .map(function(x){ return {date:x.date, in:x.start, out:x.end, brk:0}; })
+    : data.attend.filter(function(r){ return r.staffId===s.id && (r.date||"").slice(0,7)===mm && r.out; });
+  recs.sort(function(a,c){ return (c.date||"").localeCompare(a.date||""); });
+  b += '<div class="card"><div class="sec-t">📋 '+(useShift?"배정":"근무")+' 내역 ('+recs.length+'일)</div>';
+  if(!recs.length) b += '<div class="empty">기록이 없어요</div>';
+  recs.forEach(function(r){
+    const c = recCalc(r);
+    b += '<div class="li"><div class="sp"><div class="li-t">'+dLabel(r.date)+'</div>'
+      + '<div class="li-s">'+esc(r.in)+' ~ '+esc(r.out)+'</div></div>'
+      + '<div style="text-align:right"><b>'+durTxt(c.total)+'</b>'
+      + (c.night?'<div class="li-s">야간 '+durTxt(c.night)+'</div>':'')+'</div></div>';
+  });
+  b += '</div>';
+  sheet("내 급여", b);
+}
+
 /* ═══ 고정 근무 (요일 반복) ═══ */
 function fixedOf(s){ return (s && Array.isArray(s.fixed)) ? s.fixed : []; }
 function fixedSheet(){
